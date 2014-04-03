@@ -1,0 +1,46 @@
+{	
+	"links" : [
+		{
+			"options" :
+			{
+				"delay" : "10ms",
+				"bw" : 10
+			},
+			"hosts" :["h1", "s1"]
+		},
+		{
+			"hosts" :["h2", "s1"]
+		},
+		{
+			"hosts" :["s1", "s2"]
+		},
+		{
+			"hosts" : ["s1", "s3"]
+		}
+	],
+	"hosts" : [	
+		{
+			"name" : "h1"	
+		},
+		{
+			"name" : "h2"
+		}
+	],
+	"switches" : [
+		{
+			"name" : "s1"
+		},
+		{
+			"name" : "s2"
+		},
+		{
+			"name" : "s3"
+		}
+	],
+	"routers" : [
+		{
+			"name" :"",
+			"routes" : {"dest" : "", "gw" : "", "netmask" : "", "iface" : ""}
+		}
+	]
+}
