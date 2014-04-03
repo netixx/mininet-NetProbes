@@ -6,6 +6,6 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 py=$(which python)
 prog=$DIR"/mininet/builder.py"
 
-sudo "$prog" 
+sudo "$prog" "$@" 
 
 sudo mn --clean

@@ -30,6 +30,8 @@ from mininet.link import TCLink
 
 import tools
 
+from argparse import ArgumentParser
+
 class CustomTopo(Topo):
     """Topology builder for any specified topology in json format"""
     
@@ -195,9 +197,27 @@ if __name__ == '__main__':
         exit(-1)
 
     CustomMininet.init()
-    tfile = "flat.json"
-    topoFile = os.path.join(DIR, "data", tfile)
-    netProbePath = "/home/mininet/netprobes/start.sh"
-    #     runTopo(topoFile = topoFile)
-    runTopoWithNetProbes(topoFile = topoFile, netProbePath = netProbePath)
+    parser = ArgumentParser(description = "Options for starting the custom Mininet network builder")
+    parser.add_argument('--np-path',
+                        dest = 'netProbesPath',
+                        help = 'Absolute path to the NetProbes start script',
+                        default = '$HOME/netprobes/start.sh')
+
+    parser.add_argument("--topo",
+                        dest = 'tfile',
+                        help = 'Topology to load for this simulation',
+                        default = 'flat')
+
+    parser.add_argument('--no-netprobes',
+                        dest = 'no_netprobes',
+                        action = 'store_true',
+                        help = 'Do not start NetProbe probes on the hosts')
+
+    args = parser.parse_args()
+    topoFile = os.path.join(DIR, "data", args.tfile + ".json")
+
+    if (args.no_netprobes):
+        runTopo(topoFile = topoFile)
+    else:
+        runTopoWithNetProbes(topoFile = topoFile, netProbePath = args.netProbesPath)
         
