@@ -5,6 +5,7 @@ Created on 3 avr. 2014
 '''
 
 from mininet.node import Node
+from threading import Timer
 
 def startNAT(root, inetIntf = 'eth0', subnet = '10.0/8'):
     """Start NAT/forwarding between Mininet and external network
@@ -89,3 +90,6 @@ def connectToInternet(network, switch = 's1', rootip = '10.254', subnet = '10.0/
         host.cmd('route add default gw', rootip)
 
     return root
+
+
+            
