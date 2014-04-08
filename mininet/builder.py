@@ -134,7 +134,7 @@ class TopologyLoader(object):
                 opts = host["options"]
                 if opts.has_key("cpu"):
                     self.setOptions("host", CPULimitedHost)
-                o = self.container.addHost(name, host["options"])
+                o = self.container.addHost(name, **host["options"])
             else :
                 o = self.container.addHost(name)
             self.registerNode(name = name, node = o)

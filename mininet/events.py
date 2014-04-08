@@ -22,8 +22,11 @@ def _startTimers():
 
 def stopClock():
     for event in events:
-        event.timerRun.cancel()
-        event.timerReset.cancel()
+        try:
+            event.timerRun.cancel()
+            event.timerReset.cancel()
+        except:
+            pass
 
 def sheduleEvent(event):
     event.id = len(events)

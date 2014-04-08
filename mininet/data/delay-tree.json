@@ -63,34 +63,64 @@
 	],
 	"hosts" : [	
 		{
-			"name" : "h1"	
+			"name" : "h1",
+			"options" : {
+				"ip" : "10.1.0.1"
+			}
 		},
 		{
-			"name" : "h2"
+			"name" : "h2",
+			"options" : {
+				"ip" : "10.1.0.2"
+			}
 		},
 		{
-			"name" : "h3"	
+			"name" : "h3",
+			"options" : {
+				"ip" : "10.1.0.2"
+			}
 		},
 		{
-			"name" : "h4"
+			"name" : "h4",
+			"options" : {
+				"ip" : "10.1.2.4"
+			}
 		},
 		{
-			"name" : "h5"	
+			"name" : "h5",
+			"options" : {
+				"ip" : "10.1.2.5"
+			}	
 		},
 		{
-			"name" : "h6"
+			"name" : "h6",
+			"options" : {
+				"ip" : "10.2.1.6"
+			}
 		},
 		{
-			"name" : "h7"	
+			"name" : "h7",
+			"options" : {
+				"ip" : "10.2.1.7"
+			}	
 		},
 		{
-			"name" : "h8"
+			"name" : "h8",
+			"options" : {
+				"ip" : "10.1.10.8"
+			}
 		},
 		{
-			"name" : "h9"	
+			"name" : "h9",
+			"options" : {
+				"ip" : "10.2.10.9"
+			}	
 		},
 		{
-			"name" : "h10"
+			"name" : "h10",
+			"options" : {
+				"ip" : "10.10.0.10"
+			}
 		}
 	],
 	"switches" : [
