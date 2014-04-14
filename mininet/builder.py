@@ -27,10 +27,10 @@ from mininet.net import Mininet
 from mininet.topolib import Topo
 import mininet.log as lg
 from custom_mininet import TCLink
-from mininet.node import CPULimitedHost, Host, OVSKernelSwitch, Controller
-from mininet.link import Link, Intf
+from mininet.node import CPULimitedHost, RemoteController
 
 import tools, events
+from mininet.term import tunnelX11
 
 from argparse import ArgumentParser
 import re
@@ -123,6 +123,8 @@ class TopologyLoader(object):
             self.registerNode(name, o)
     
     def loadRouters(self):
+        if len(self.routers) > 0:
+            self.setOptions('router', RemoteController)
         for router in self.routers:
             #load router
             pass
@@ -148,7 +150,10 @@ class TopologyLoader(object):
                 opts = {}
                 opts['name'] = link['name']
             if link.has_key("options"):
-                opts.update(link["options"])
+                if opts is not None:
+                    opts.update(link["options"])
+                else :
+                    opts = link['options']
                 if hasTCLinkProperties(opts):
                     self.setOption("link", TCLink)
             if opts is not None:
@@ -221,13 +226,39 @@ class CustomMininet(Mininet):
         if name is not None:
             self.nameToNode[name] = l
         return l;
-    
+
+# Use for routers
+# class POX(Controller):
+#     def __init__(self, name, cdir = None,
+#                   command = 'python pox.py',
+#                   cargs = ('openflow.of_01 --port=%s '
+#                           'forwarding.l2_learning'),
+#                   **kwargs):
+#         Controller.__init__(self, name, cdir = cdir,
+#                              command = command,
+#                              cargs = cargs, **kwargs)
+#
+# class MultiSwitch(OVSSwitch):
+#     "Custom Switch() subclass that connects to different controllers"
+#     def start(self, controllers):
+#         return OVSSwitch.start(self, [ cmap[ self.name ] ])
+#
+# topo = TreeTopo(depth = 2, fanout = 2)
+# net = Mininet(topo = topo, switch = MultiSwitch, build = False)
+# for c in [ c0, c1 ]:
+#     net.addController(c)
+# net.build()
+# net.start()
+# CLI(net)
+# net.stop()
 
 def runTopo(topoFile, params):
     topo = CustomTopo(topoFilePath = topoFile, params = params)
     net = CustomMininet(topo = topo, **topo.getNetOptions())
     try :
         start(net)
+        if xterm:
+            startXterm(net)
         events.startClock(net)
         CLI(net)
     finally:
@@ -240,8 +271,13 @@ def runTopoWithNetProbes(topoFile, netProbePath, params):
         start(net)
 
         cmd = netProbePath
+        if strace:
+            cmd = "-c 'strace " + cmd + " '"
         for host in net.hosts:
-            host.cmd(cmd + ' &')
+            if xterm:
+                makeTerm(host, cmd = cmd)
+            else:
+                host.cmd(cmd + ' &')
 
         events.startClock(net)
         CLI(net)
@@ -251,6 +287,10 @@ def runTopoWithNetProbes(topoFile, netProbePath, params):
     
         stop(net)
  
+def startXterm(net):
+    for host in net.hosts:
+        makeTerm(host)
+
 def start(net):
     net.start()
     rootnode = tools.connectToInternet(net)
@@ -265,7 +305,31 @@ def stop(net):
         events.t_start.cancel()
     events.stopClock()
 
+def makeTerm(node, title = 'Node', term = 'xterm', display = None, cmd = 'echo'):
+    """Create an X11 tunnel to the node and start up a terminal.
+       node: Node object
+       title: base title
+       term: 'xterm' or 'gterm'
+       returns: two Popen objects, tunnel and terminal"""
+    title += ': ' + node.name
+    if not node.inNamespace:
+        title += ' (root)'
+    cmds = {
+        'xterm': [ 'xterm', '-title', title, '-display' ],
+        'gterm': [ 'gnome-terminal', '--title', title, '--display' ]
+    }
+    if term not in cmds:
+        lg.error('invalid terminal type: %s' % term)
+        return
+    display, tunnel = tunnelX11(node, display)
+    if display is None:
+        return []
+    term = node.popen(cmds[ term ] + [ display, '-e', 'env TERM=ansi bash ' + cmd])
+    return [ tunnel, term ] if tunnel else [ term ]
 
+
+xterm = False
+strace = False
 if __name__ == '__main__':
     lg.setLogLevel('info')
 
@@ -302,9 +366,21 @@ if __name__ == '__main__':
                        default = 5,
                        help = 'Time to pass before network is modified')
 
+    parser.add_argument('-x', '--xterm',
+                        dest = 'xterm',
+                        action = 'store_true',
+                        help = 'Start XTerm terminal for each host')
+
+    parser.add_argument('--strace',
+                        dest = 'strace',
+                        action = 'store_true',
+                        help = 'Run strace on command inside nodes')
+
     args = parser.parse_args()
     topoFile = os.path.join(DIR, "data", args.tfile + ".json")
     events.start_time = int(args.start_time)
+    xterm = args.xterm
+    strace = args.strace
     if (args.no_netprobes):
         runTopo(topoFile = topoFile, params = args.vars)
     else:
