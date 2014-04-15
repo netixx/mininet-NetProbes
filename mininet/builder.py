@@ -266,18 +266,19 @@ def runTopo(topoFile, params):
 
 def runTopoWithNetProbes(topoFile, netProbePath, params):
     topo = CustomTopo(topoFilePath = topoFile, params = params)
-    net = CustomMininet(topo = CustomTopo(topoFilePath = topoFile), **topo.getNetOptions())
+    net = CustomMininet(topo = topo, **topo.getNetOptions())
     try :
         start(net)
 
-        cmd = netProbePath
+        cmd = netProbePath + ' -id {name}'
         if strace:
             cmd = "-c 'strace " + cmd + " '"
         for host in net.hosts:
+            acmd = cmd.format(name = host.name)
             if xterm:
-                makeTerm(host, cmd = cmd)
+                makeTerm(host, cmd = acmd)
             else:
-                host.cmd(cmd + ' &')
+                host.cmd(acmd + ' &')
 
         events.startClock(net)
         CLI(net)
@@ -305,7 +306,7 @@ def stop(net):
         events.t_start.cancel()
     events.stopClock()
 
-def makeTerm(node, title = 'Node', term = 'xterm', display = None, cmd = 'echo'):
+def makeTerm(node, title = 'Node', term = 'xterm', display = None, cmd = ''):
     """Create an X11 tunnel to the node and start up a terminal.
        node: Node object
        title: base title

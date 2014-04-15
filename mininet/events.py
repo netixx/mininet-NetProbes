@@ -9,7 +9,7 @@ events = []
 from mininet.log import info
 
 def startClock(net):
-    info('*Events starting in %s seconds\n' % start_time)
+    info('* Events starting in %s seconds\n' % start_time)
     global network
     network = net
     global t_start
@@ -34,17 +34,17 @@ def sheduleEvent(event):
     if event.repeat is not None:
         event.timerRun = Timer(start_time, runPeriodicEvent, args = [event])
         events.append(event)
-        info('*Event %s : Scheduled periodic event on equipment %s:\n > duration %s\n > period %s \n > modifying parameters : %s\n-------\n'
+        info('* Event %s : Scheduled periodic event on equipment %s:\n > duration %s\n > period %s \n > modifying parameters : %s\n-------\n'
              % (event.id, event.target, event.duration, event.repeat, ", ".join(event.variations.keys())))
     else :
         event.timerRun = Timer(start_time, runEvent, args = [event])
         events.append(event)
-        info('*Event %s : Scheduled event on equipment %s\n > duration %s\n > modifying parameters : %s\n-------\n'
+        info('* Event %s : Scheduled event on equipment %s\n > duration %s\n > modifying parameters : %s\n-------\n'
              % (event.id, event.target, event.duration, ", ".join(event.variations.keys())))
 
 
 def runEvent(event):
-    info('*Event %s : Running event on %s\n' % (event.id, event.target))
+    info('* Event %s : Running event on %s\n' % (event.id, event.target))
     targ = network.get(event.target)  # network.get(event.target)
     # supports links only
     targ.set(event.variations)
@@ -52,7 +52,7 @@ def runEvent(event):
     event.timerReset.start()
 
 def stopEvent(target, event):
-    info('*Event %s : Stopping event on %s\n' % (event.id, event.target))
+    info('* Event %s : Stopping event on %s\n' % (event.id, event.target))
     target.reset()
 
 def runPeriodicEvent(event):
