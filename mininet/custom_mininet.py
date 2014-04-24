@@ -1,17 +1,103 @@
-'''
+"""
 Created on 8 avr. 2014
 
 @author: francois
-'''
+"""
+import argparse
+import re
+import shlex
 import mininet
 from mininet.link import TCIntf
-import re
+
+import monitor
+
+class CLI(mininet.cli.CLI):
+
+    def do_monitor(self, line):
+        """Start/stop or collect monitoring network usage of the nodes"""
+        print("Not implemented")
+        parser = argparse.ArgumentParser()
+        # parser.add_argument('command',
+        #                     metavar = 'COMMAND',
+        #                     choices = ['start', 'stop', 'collect', 'reset'],
+        #                     dest = 'command',
+        #                     help = 'Monitor command to run')
+        #
+        # parser.add_argument('host',
+        #                     # action = 'append',
+        #                     # metavar = 'host',
+        #                     nargs = '*',
+        #                     help = 'Host to monitor')
+        #
+        subp = parser.add_subparsers(dest = 'subparser_name')
+        # parser for the add command
+        # # subp1 = subp.add_parser('start')
+        #
+        # # parser for the do command
+        # # subp2 = subp.add_parser('stop')
+        # # subp2.add_argument('test', metavar = 'test',
+        # #                    help = 'The message you want to send to the probe')
+        # # subp2.add_argument('options', nargs = argparse.REMAINDER)
+        # # subp2.set_defaults(func = self.stop)
+        #
+        # # parse for the remove command
+        subp3 = subp.add_parser('collect')
+        subp3.add_argument('file',
+                           help = "File to collect the data to")
+
+        # # subp3.set_defaults(func = self.collect)
+        # # subp4 = subp.add_parser('reset')
+        # # subp4.set_defaults(func = self.reset)
+        #
+        args = parser.parse_args(shlex.split(line))
+        for host in self.mn.hosts():
+            monitor.collect(host, args.file)
+        #
+        # if len(args.host) == 0:
+        #     hosts = self.mn.hosts()
+        # else:
+        #     hosts = [self.mn.getNde(h) for h in args.hosts]
+        #
+        # if args.command == 'start':
+        #     func = monitor.start
+        # elif args.command == 'stop':
+        #     func = monitor.stop
+        # elif args.command == 'collect':
+        #     func = monitor.collect
+        # elif args.command == 'reset':
+        #     func = monitor.reset
+        #
+        # for host in hosts:
+        #     func(monitor.getMonitor(host))
+
+
+
+class _Host(object):
+    """A host with a command to run on startup"""
+    def __init__( self, isXHost = False, command = None, commandOpts = None, monitor_rules = None):
+        self.isXHost = isXHost
+        self.command = command
+        self.commandOpts = commandOpts
+        self.monitor_rules = monitor_rules
+
+
+class Host(mininet.node.Host, _Host):
+    def __init__(self, name, inNamespace=True, isXHost = False, command = None, commandOpts = None, monitor_rules = None, **params):
+        mininet.node.Host.__init__(self, name, inNamespace, **params)
+        _Host.__init__(self, isXHost = isXHost, command = command, commandOpts = commandOpts, monitor_rules = monitor_rules)
+
+
+class CPULimitedHost(mininet.node.CPULimitedHost, _Host):
+    def __init__(self, name, sched = 'cfs', isXHost = False, command = None, commandOpts = None, monitor_rules = None, **kwargs):
+        mininet.node.CPULimitedHost.__init__(self, name, sched = sched, **kwargs)
+        _Host.__init__(self, isXHost = isXHost, command = command, commandOpts = commandOpts, monitor_rules = monitor_rules)
+
 
 class TCLink(mininet.link.TCLink):
     def __init__(self, node1, node2, port1 = None, port2 = None,
-                  intfName1 = None, intfName2 = None, **params):
+                 intfName1 = None, intfName2 = None, **params):
         mininet.link.TCLink.__init__(self, node1, node2, port1 = port1, port2 = port2,
-                       intfName1 = intfName1, intfName2 = intfName2, **params)
+                                     intfName1 = intfName1, intfName2 = intfName2, **params)
 
     def set(self, newparams):
         self.setIntf(self.intf1, newparams)
@@ -29,30 +115,33 @@ class TCLink(mininet.link.TCLink):
     def resetIntf(self, interface):
         config(interface, interface.params)
 
+
 def rawCmd(node, *args):
-        cmd = ""
-        # Allow sendCmd( [ list ] )
-        if len(args) == 1 and type(args[ 0 ]) is list:
-            cmd = args[ 0 ]
-        # Allow sendCmd( cmd, arg1, arg2... )
-        elif len(args) > 0:
-            cmd = args
-        # Convert to string
-        if not isinstance(cmd, str):
-            cmd = ' '.join([ str(c) for c in cmd ])
-        if not re.search(r'\w', cmd):
-            # Replace empty commands with something harmless
-            cmd = 'echo -n'
-        node.write(cmd + '\n')
+    cmd = ""
+    # Allow sendCmd( [ list ] )
+    if len(args) == 1 and type(args[0]) is list:
+        cmd = args[0]
+    # Allow sendCmd( cmd, arg1, arg2... )
+    elif len(args) > 0:
+        cmd = args
+    # Convert to string
+    if not isinstance(cmd, str):
+        cmd = ' '.join([str(c) for c in cmd])
+    if not re.search(r'\w', cmd):
+        # Replace empty commands with something harmless
+        cmd = 'echo -n'
+    node.write(cmd + '\n')
+
 
 def tc(interface, cmd, tc = 'tc'):
     "Execute tc command for our interface"
     c = cmd % (tc, interface)  # Add in tc command and our name
-#     debug(" *** executing command: %s\n" % c)
+    #     debug(" *** executing command: %s\n" % c)
     return rawCmd(interface.node, c)
 
+
 def config(interface, params):
-    cmds = [ '%s qdisc del dev %s root' ]
+    cmds = ['%s qdisc del dev %s root']
     cmd, parent = TCIntf.bwCmds(interface, **filterBwOpts(params))
     cmds += cmd
     cmd, parent = TCIntf.delayCmds(parent, **filterDelayOpts(params))
@@ -60,11 +149,14 @@ def config(interface, params):
     for cmd in cmds:
         tc(interface, cmd)
 
+
 def filterBwOpts(options):
     return {k: v for k, v in options.iteritems() if isBwOption(k)}
 
+
 def filterDelayOpts(options):
     return {k: v for k, v in options.iteritems() if isDelayOptions(k)}
+
 
 def isBwOption(opt):
     return (opt == 'bw' or
@@ -74,6 +166,7 @@ def isBwOption(opt):
             opt == 'latency_ms' or
             opt == 'enable_ecn' or
             opt == 'enable_red')
+
 
 def isDelayOptions(opt):
     return (opt == 'delay' or

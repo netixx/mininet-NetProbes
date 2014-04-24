@@ -5,7 +5,7 @@ Created on 3 avr. 2014
 '''
 
 from mininet.node import Node
-from threading import Timer
+
 
 def startNAT(root, inetIntf = 'eth0', subnet = '10.0/8'):
     """Start NAT/forwarding between Mininet and external network
@@ -34,6 +34,7 @@ def startNAT(root, inetIntf = 'eth0', subnet = '10.0/8'):
     # Instruct the kernel to perform forwarding
     root.cmd('sysctl net.ipv4.ip_forward=1')
 
+
 def stopNAT(root):
     """Stop NAT/forwarding between Mininet and external network"""
     # Flush any currently active rules
@@ -42,6 +43,7 @@ def stopNAT(root):
 
     # Instruct the kernel to stop forwarding
     root.cmd('sysctl net.ipv4.ip_forward=0')
+
 
 def fixNetworkManager(root, intf):
     """Prevent network-manager from messing with our interface,
@@ -59,13 +61,14 @@ def fixNetworkManager(root, intf):
         # hopefully this won't disconnect you
         root.cmd('service network-manager restart')
 
+
 def connectToInternet(network, switch = 's1', rootip = '10.254', subnet = '10.0/8'):
     """Connect the network to the internet
        switch: switch to connect to root namespace
        rootip: address for interface in root namespace
        subnet: Mininet subnet"""
     switch = network.get(switch)
-    prefixLen = subnet.split('/')[ 1 ]
+    prefixLen = subnet.split('/')[1]
 
     # Create a node in root namespace
     root = Node('root', inNamespace = False)
@@ -81,7 +84,7 @@ def connectToInternet(network, switch = 's1', rootip = '10.254', subnet = '10.0/
     network.start()
 
     # Start NAT and establish forwarding
-#     startNAT( root )
+    #     startNAT( root )
 
     # Establish routes from end hosts
     for host in network.hosts:

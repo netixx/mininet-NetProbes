@@ -1,57 +1,50 @@
 #!/usr/bin/env python
-
-'''
-    Copyright (C) 2012  Stanford University
-
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-    
-    Description: Load topology in Mininet
-    Author: James Hongyi Zeng (hyzeng_at_stanford.edu)
-'''
+"""
+    Run Mininet hifi emulation of a custom network topology defined by a .json file
+    Start a NetProbes instance per host (can be turned off by options)
+    Ability to schedule events to occur on the virtual network via the json file.
+    Example are given in the data folder.
+"""
 
 from os import getuid
 import os
-from mininet.cli import CLI
+from argparse import ArgumentParser
+import re
+
 from mininet.net import Mininet
 from mininet.topolib import Topo
 import mininet.log as lg
-from custom_mininet import TCLink
-from mininet.node import CPULimitedHost, RemoteController
+from custom_mininet import TCLink, CPULimitedHost, Host,CLI
+from mininet.node import RemoteController
 
-import tools, events
+import tools
+import events
 from mininet.term import tunnelX11
-
-from argparse import ArgumentParser
-import re
 from events import NetEvent
+import monitor
+
+
 
 class CustomTopo(Topo):
     """Topology builder for any specified topology in json format"""
-    
-    def __init__(self, topoFilePath = None, params = {}, **opts):
+
+    def __init__(self, topoFilePath = None, simParams = {}, hostOptions = {}, **opts):
         pparams = {}
         # record parameters from the cli
-        for param in params :
+        for param in simParams:
             p = param.partition("=")
             pparams[p[0]] = p[2]
 
         if topoFilePath is None:
             raise RuntimeError("No topology file given")
         super(CustomTopo, self).__init__(**opts)
-        self.netOptions = {}
+        self.netOptions = {"host" : Host}
         reader = TopologyLoader(topoObj = self, topoFile = topoFilePath, cliParams = pparams)
         reader.loadTopoFromFile()
+        self.defaultHostOptions = hostOptions
+
+    def getDefaultHostParams(self):
+        return self.defaultHostOptions.copy()
 
     def getNetOptions(self):
         return self.netOptions
@@ -60,6 +53,8 @@ class CustomTopo(Topo):
         self.netOptions[option] = value
 
 class TopologyLoader(object):
+    """Loads all the information in the json file"""
+
     # keywords for reading type of equipments
     KW_HOSTS = "hosts"
     KW_LINKS = "links"
@@ -76,12 +71,13 @@ class TopologyLoader(object):
         self.hosts = []
         self.routers = []
         self.switches = []
-        
+
     def setOption(self, option, value):
         self.container.setNetOption(option, value)
 
     def loadTopoFromFile(self):
         from json import load as jload
+
         graph = None
         with open(self.fileName, 'r') as f:
             graph = jload(f)
@@ -100,11 +96,11 @@ class TopologyLoader(object):
                 self.switches = listOfEquipment
             elif typeOfEquipment == self.KW_EVENTS:
                 self.events = listOfEquipment
-            else :
+            else:
                 raise RuntimeError('Unknown equipment type or keyword')
         # load links last as they require other elements
         self.loadHosts()
-#         self.loadRouters()
+        #         self.loadRouters()
         self.loadSwitches()
         self.loadLinks()
         self.loadEvents()
@@ -121,14 +117,14 @@ class TopologyLoader(object):
             else:
                 o = self.container.addSwitch(name)
             self.registerNode(name, o)
-    
+
     def loadRouters(self):
         if len(self.routers) > 0:
             self.setOptions('router', RemoteController)
         for router in self.routers:
             #load router
             pass
-    
+
     def loadHosts(self):
         for host in self.hosts:
             name = str(host["name"])
@@ -137,22 +133,20 @@ class TopologyLoader(object):
                 if opts.has_key("cpu"):
                     self.setOptions("host", CPULimitedHost)
                 o = self.container.addHost(name, **host["options"])
-            else :
+            else:
                 o = self.container.addHost(name)
             self.registerNode(name = name, node = o)
 
-    
     def loadLinks(self):
         for link in self.links:
             opts = None
             hosts = link["hosts"]
             if link.has_key('name'):
-                opts = {}
-                opts['name'] = link['name']
+                opts = {'name': link['name']}
             if link.has_key("options"):
                 if opts is not None:
                     opts.update(link["options"])
-                else :
+                else:
                     opts = link['options']
                 if hasTCLinkProperties(opts):
                     self.setOption("link", TCLink)
@@ -161,7 +155,7 @@ class TopologyLoader(object):
             else:
                 self.addLink(hosts[0], hosts[1])
 
-    
+
     def addLink(self, host1, host2, options = {}):
         host1 = str(host1)
         host2 = str(host2)
@@ -197,25 +191,27 @@ class TopologyLoader(object):
                 rm = re.match(expectedTimeFormat, event["duration"])
                 if rm is not None:
                     e.duration = float(rm.group(1)) / 1000.0
-                    if e.repeat is not None and e.duration > e.repeat :
+                    if e.repeat is not None and e.duration > e.repeat:
                         raise RuntimeError("Duration of the event is greater that the repeat time")
             if event.has_key('nrepeat'):
                 e.nrepeat = int(event['nrepeat'])
             # register event for scheduling
             events.sheduleEvent(e)
 
+
 def hasTCLinkProperties(opts):
     return (opts.has_key("bw")
-                or opts.has_key("delay")
-                or opts.has_key("loss")
-                or opts.has_key("max_queue_size")
-                or opts.has_key("use_htb"))
+            or opts.has_key("delay")
+            or opts.has_key("loss")
+            or opts.has_key("max_queue_size")
+            or opts.has_key("use_htb"))
 
 
 class CustomMininet(Mininet):
+    """Customized mininet network class"""
 
     def addLink(self, node1, node2, port1 = None, port2 = None,
-                 cls = None, **params):
+                cls = None, **params):
         name = None
         if params.has_key('name'):
             name = params['name']
@@ -225,7 +221,18 @@ class CustomMininet(Mininet):
         l = super(CustomMininet, self).addLink(node1, node2, port1, port2, cls, **params)
         if name is not None:
             self.nameToNode[name] = l
-        return l;
+        return l
+
+    def addHost( self, name, cls=None, **params ):
+        """Add host.
+           name: name of host to add
+           cls: custom host class/constructor (optional)
+           params: parameters for host
+           returns: added host"""
+        defaults = self.topo.getDefaultHostParams()
+        defaults.update(params)
+        return super(CustomMininet, self).addHost(name, cls, **defaults)
+
 
 # Use for routers
 # class POX(Controller):
@@ -252,45 +259,50 @@ class CustomMininet(Mininet):
 # CLI(net)
 # net.stop()
 
-def runTopo(topoFile, params):
-    topo = CustomTopo(topoFilePath = topoFile, params = params)
+def runTopo(topoFile, simParams, hostOptions, checkLevel):
+    topo = CustomTopo(topoFilePath = topoFile, simParams = simParams, hostOptions = hostOptions)
     net = CustomMininet(topo = topo, **topo.getNetOptions())
-    try :
+    try:
         start(net)
-        if xterm:
-            startXterm(net)
-        events.startClock(net)
-        CLI(net)
-    finally:
-        stop(net)
-
-def runTopoWithNetProbes(topoFile, netProbePath, params):
-    topo = CustomTopo(topoFilePath = topoFile, params = params)
-    net = CustomMininet(topo = topo, **topo.getNetOptions())
-    try :
-        start(net)
-
-        cmd = netProbePath + ' -id {name}'
-        if strace:
-            cmd = "-c 'strace " + cmd + " '"
         for host in net.hosts:
-            acmd = cmd.format(name = host.name)
-            if xterm:
-                makeTerm(host, cmd = acmd)
+            if host.monitor_rules is not None:
+                monitor.start(host, host.monitor_rules)
+            if host.command is not None:
+                host.command = host.command.format(commandOpts = host.commandOpts, name = host.name).format(name = host.name)
+                if host.isXHost:
+                    makeTerm(host, cmd = host.command)
+                else:
+                    host.cmd("bash %s &" % host.command)
             else:
-                host.cmd(acmd + ' &')
-
+                if host.isXHost:
+                    makeTerm(host)
         events.startClock(net)
+        check(net, checkLevel)
         CLI(net)
     finally:
+        counter = monitor.Counter()
         for host in net.hosts:
-            host.cmd('kill %' + cmd)
-    
+            if host.monitor_rules is not None:
+                monitor.collect(host, monitor_file, counter)
+                monitor.stop(host, host.monitor_rules)
+            if host.command is not None:
+                # print("%s %s"%(host.name,host.lastPid))
+                # import subprocess
+                # subprocess.call(["/bin/kill", "-s INT", str(host.lastPid)])
+                host.cmd('kill -s INT %')
+                # host.sendInt()
+        monitor.writeSummary(monitor_file, counter)
         stop(net)
- 
+
+def check(net, level):
+    if level > 0:
+        import check
+        check.check(net, level)
+
 def startXterm(net):
     for host in net.hosts:
         makeTerm(host)
+
 
 def start(net):
     net.start()
@@ -300,11 +312,13 @@ def start(net):
         print host.name, host.IP()
     return rootnode
 
+
 def stop(net):
     net.stop()
     if events.t_start is not None:
         events.t_start.cancel()
     events.stopClock()
+
 
 def makeTerm(node, title = 'Node', term = 'xterm', display = None, cmd = ''):
     """Create an X11 tunnel to the node and start up a terminal.
@@ -316,8 +330,8 @@ def makeTerm(node, title = 'Node', term = 'xterm', display = None, cmd = ''):
     if not node.inNamespace:
         title += ' (root)'
     cmds = {
-        'xterm': [ 'xterm', '-title', title, '-display' ],
-        'gterm': [ 'gnome-terminal', '--title', title, '--display' ]
+        'xterm': ['xterm', '-title', title, '-geometry', '150x30', '-display'],
+        'gterm': ['gnome-terminal', '--title', title, '--display']
     }
     if term not in cmds:
         lg.error('invalid terminal type: %s' % term)
@@ -325,12 +339,10 @@ def makeTerm(node, title = 'Node', term = 'xterm', display = None, cmd = ''):
     display, tunnel = tunnelX11(node, display)
     if display is None:
         return []
-    term = node.popen(cmds[ term ] + [ display, '-e', 'env TERM=ansi bash ' + cmd])
-    return [ tunnel, term ] if tunnel else [ term ]
+    term = node.popen(cmds[term] + [display, '-e', 'env TERM=ansi bash ' + cmd])
+    return [tunnel, term] if tunnel else [term]
 
-
-xterm = False
-strace = False
+monitor_file = ""
 if __name__ == '__main__':
     lg.setLogLevel('info')
 
@@ -341,20 +353,12 @@ if __name__ == '__main__':
 
     CustomMininet.init()
     parser = ArgumentParser(description = "Options for starting the custom Mininet network builder")
-    parser.add_argument('--np-path',
-                        dest = 'netProbesPath',
-                        help = 'Absolute path to the NetProbes start script',
-                        default = '$HOME/netprobes/start.sh')
 
+    #emulation options
     parser.add_argument("--topo",
                         dest = 'tfile',
                         help = 'Topology to load for this simulation',
                         default = 'flat')
-
-    parser.add_argument('--no-netprobes',
-                        dest = 'no_netprobes',
-                        action = 'store_true',
-                        help = 'Do not start NetProbe probes on the hosts')
 
     parser.add_argument("--vars",
                         dest = 'vars',
@@ -363,27 +367,73 @@ if __name__ == '__main__':
                         help = 'Pass variables to the emulation')
 
     parser.add_argument("--start",
-                       dest = 'start_time',
-                       default = 5,
-                       help = 'Time to pass before network is modified')
+                        dest = 'start_time',
+                        default = 5,
+                        help = 'Time to pass before network is modified')
 
-    parser.add_argument('-x', '--xterm',
-                        dest = 'xterm',
-                        action = 'store_true',
-                        help = 'Start XTerm terminal for each host')
+    #network construction options
+    parser.add_argument('-c', '--check',
+                        dest = 'net_check',
+                        action = 'count',
+                        default = 0,
+                        help = 'Set level of checks to perform after network construction.')
 
-    parser.add_argument('--strace',
-                        dest = 'strace',
+    #command options
+    ncmds = parser.add_mutually_exclusive_group()
+
+    ncmds.add_argument('--no-command',
+                       dest = 'no_command',
+                       action = 'store_true',
+                       default = False,
+                       help = 'Do not execute command on the hosts')
+
+    cmds = ncmds.add_argument_group()
+    cmds.add_argument('--command',
+                        dest = 'command',
+                        help = 'Command to run on nodes',
+                        default = '$HOME/netprobes/start.sh {commandOpts}')
+
+    cmds.add_argument('--strace',
+                      dest = 'strace',
+                      action = 'store_true',
+                      default = False,
+                      help = 'Run strace on command inside nodes')
+
+
+    #monitoring options
+    parser.add_argument('--monitor',
+                        dest = 'monitor_file',
+                        default = False,
+                        help = 'Monitor each host for network usage')
+
+
+    parser.add_argument('--force-x',
+                        dest = 'force_x',
                         action = 'store_true',
-                        help = 'Run strace on command inside nodes')
+                        default = False,
+                        help = 'Force start XTerm terminal for each host')
 
     args = parser.parse_args()
     topoFile = os.path.join(DIR, "data", args.tfile + ".json")
     events.start_time = int(args.start_time)
-    xterm = args.xterm
-    strace = args.strace
-    if (args.no_netprobes):
-        runTopo(topoFile = topoFile, params = args.vars)
-    else:
-        runTopoWithNetProbes(topoFile = topoFile, netProbePath = args.netProbesPath, params = args.vars)
-        
+    # monitorUsage = args.monitorUsage
+
+    hOpts = {'commandOpts' : "-id {name}"}
+    if args.monitor_file:
+        monitor_file = args.monitor_file
+        monitor.prepareFile(monitor_file)
+        hOpts['monitor_rules'] = monitor.rules
+
+    if args.no_command:
+        hOpts['command'] = None
+    elif args.command:
+        hOpts['command'] = args.command
+        if args.strace:
+            hOpts['command'] = "-c 'strace {command} '".format(command = hOpts['command'])
+    if args.force_x:
+        hOpts['isXHost'] = True
+
+    runTopo(topoFile = topoFile,
+            simParams = args.vars,
+            hostOptions = hOpts,
+            checkLevel = args.net_check)

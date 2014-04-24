@@ -14,7 +14,10 @@
 	],
 	"hosts" : [	
 		{
-			"name" : "h1"	
+			"name" : "h1",
+			"options" : {
+			    "commandOpts" : "--watcher delay --add-prefix 10.0.0.2/32"
+			}
 		},
 		{
 			"name" : "h2"
