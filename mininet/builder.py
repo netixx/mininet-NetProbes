@@ -280,18 +280,21 @@ def runTopo(topoFile, simParams, hostOptions, checkLevel):
         check(net, checkLevel)
         CLI(net)
     finally:
+        mon = False
         counter = monitor.Counter()
         for host in net.hosts:
             if host.monitor_rules is not None:
                 monitor.collect(host, monitor_file, counter)
                 monitor.stop(host, host.monitor_rules)
+                mon = True
             if host.command is not None:
                 # print("%s %s"%(host.name,host.lastPid))
                 # import subprocess
                 # subprocess.call(["/bin/kill", "-s INT", str(host.lastPid)])
                 host.cmd('kill -s INT %')
                 # host.sendInt()
-        monitor.writeSummary(monitor_file, counter)
+        if mon:
+            monitor.writeSummary(monitor_file, counter)
         stop(net)
 
 def check(net, level):
