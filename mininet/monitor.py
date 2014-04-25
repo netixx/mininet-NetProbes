@@ -35,7 +35,7 @@ def start(node, rules):
     """
     info("Starting monitor for host %s\n"%node.name)
     for rule in rules:
-        node.cmd(_formatCommand(_MON_START_TPL, rule))
+        node.pexec(_formatCommand(_MON_START_TPL, rule))
 
 def stop(node, rules):
     """Stop monitoring a node
@@ -43,7 +43,7 @@ def stop(node, rules):
     :param rules: rules to stop monitoring
     """
     for rule in rules:
-        node.cmd(_formatCommand(_MON_STOP_TPL, rule))
+        node.pexec(_formatCommand(_MON_STOP_TPL, rule))
 
 def reset(node, rules):
     """Reset counters for this node"""
@@ -54,14 +54,14 @@ def collect(node, file, counter = None):
     """Collect usage data for this node to file
     :param node: node to use
     :param file: file to write the output to
-    :param counter: object to sum butes and packets
+    :param counter: object to sum bytes and packets
     """
     with open(file, 'a') as f:
         info("Collecting usage data for host %s\n" % node.name)
         f.write("------ Usage statistics for host %s:\n" % node.name)
         for direction in _directions:
             rule = {'direction' : direction}
-            f.write(_parseOutput(node.cmd(_formatCommand(_MON_COLLECT_TPL, rule)), counter) + "\n")
+            f.write(_parseOutput(node.pexec(_formatCommand(_MON_COLLECT_TPL, rule))[0].decode(), counter) + "\n")
 
 
 
