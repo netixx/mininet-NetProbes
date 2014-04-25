@@ -47,13 +47,14 @@ def sheduleEvent(event):
              % (event.id, event.target, event.duration, ", ".join(event.variations.keys())))
 
 
-def runEvent(event):
+def runEvent(event, net = network):
     info('* Event %s : Running event on %s\n' % (event.id, event.target))
-    targ = network.get(event.target)  # network.get(event.target)
+    targ = net.get(event.target)  # network.get(event.target)
     # supports links only
     targ.set(event.variations)
-    event.timerReset = Timer(event.duration, stopEvent, args = [targ, event])
-    event.timerReset.start()
+    if event.duration is not None:
+        event.timerReset = Timer(event.duration, stopEvent, args = [targ, event])
+        event.timerReset.start()
 
 
 def stopEvent(target, event):
@@ -80,12 +81,12 @@ def replaceParams(event, params):
 
 
 class NetEvent(object):
-    def __init__(self):
-        self.target = None
-        self.repeat = None
-        self.variations = {}
-        self.duration = None
-        self.nrepeat = None
+    def __init__(self, target = None, repeat = None, duration = None, variations = {}, nrepeat = None):
+        self.target = target
+        self.repeat = repeat
+        self.variations = variations
+        self.duration = duration
+        self.nrepeat = nrepeat
         self.timerReset = None
         self.timerRun = None
         self.id = None

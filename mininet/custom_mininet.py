@@ -130,7 +130,7 @@ def rawCmd(node, *args):
     if not re.search(r'\w', cmd):
         # Replace empty commands with something harmless
         cmd = 'echo -n'
-    node.write(cmd + '\n')
+    node.popen(cmd)
 
 
 def tc(interface, cmd, tc = 'tc'):

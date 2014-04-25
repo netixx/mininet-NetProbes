@@ -261,6 +261,8 @@ class CustomMininet(Mininet):
 
 def runTopo(topoFile, simParams, hostOptions, checkLevel):
     topo = CustomTopo(topoFilePath = topoFile, simParams = simParams, hostOptions = hostOptions)
+    if checkLevel > 1:
+        topo.setNetOption('link', TCLink)
     net = CustomMininet(topo = topo, **topo.getNetOptions())
     try:
         start(net)
