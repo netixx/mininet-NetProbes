@@ -57,7 +57,37 @@ class Traceroute(object):
         """Use traceroute as ping"""
         out, err, exitcode = node.pexec(cls._getTracerouteCmd(target.IP(), options))
         hops = cls._parseTrace(out.decode())
-        return hops[-1]
+        return cls.sumTraceDelay(hops)
+
+    @staticmethod
+    def sumTraceDelay(hops):
+        if len(hops) == 0:
+            return DelayStats()
+        sent = hops[0].sent
+        received = hops[0].sent
+        rttmin = 0
+        rttmax = 0
+        rttdevs = []
+        rttavgs = []
+        for hop in hops:
+            #if the chain is broken by a node not answering
+            if hop.sent <= 0 or hop.received <= 0:
+                return DelayStats()
+            sent = max(hop.sent, sent)
+            received = min(hop.received, received)
+            rttavgs.append(hop.rttavg)
+            rttdevs.append(hop.rttdev)
+            rttmin += hop.rttmin
+            rttmax += hop.rttmax
+
+        rttavg = sum(rttavgs)/len(rttavgs)
+        rttdev = math.sqrt(sum(rttdevs)/len(rttdevs))
+        return DelayStats(sent = sent,
+                          received = received,
+                          rttmin = rttmin,
+                          rttmax = rttmax,
+                          rttdev = rttdev,
+                          rttavg = rttavg)
 
     @classmethod
     def _getTracerouteCmd(cls, target, options = {}):
@@ -170,3 +200,26 @@ class Ping(object):
         except:
             return DelayStats(sent = sent, received = received)
         return DelayStats(sent = sent, received = received, rttmin = rttmin, rttavg = rttavg, rttmax = rttmax, rttdev = rttdev)
+
+    # @classmethod
+    # def _parseSweepPing(cls, pingOutput):
+    #     errorTuple = (-1.0, -1.0, [])
+    #     # Parse ping output and return all data.
+    #     #         errorTuple = (1, 0, 0, 0, 0, 0)
+    #     # Check for downed link
+    #     r = r'[uU]nreachable'
+    #     m = re.search(r, pingOutput)
+    #     if m is not None:
+    #         return errorTuple
+    #     r = r'(\d+) packets transmitted, (\d+) (?:packets)? received'
+    #     m = re.search(r, pingOutput)
+    #     if m is None:
+    #         return errorTuple
+    #     sent, received = int(m.group(1)), int(m.group(2))
+    #     r = r'(\d+) bytes from .*: icmp_seq=(\d+)'
+    #     m = re.findall(r, pingOutput)
+    #     sweep = []
+    #     if m is not None:
+    #         for line in m:
+    #             sweep.append((int(line[1]), int(line[0])))
+    #     return sent, received, sweep
