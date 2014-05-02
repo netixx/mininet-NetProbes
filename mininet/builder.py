@@ -61,6 +61,7 @@ class TopologyLoader(object):
     KW_SWITCHES = "switches"
     KW_ROUTERS = "routers"
     KW_EVENTS = "events"
+    KW_CHECKS = "checks"
 
     def __init__(self, topoObj, topoFile, cliParams):
         self.cliParams = cliParams
@@ -71,6 +72,7 @@ class TopologyLoader(object):
         self.hosts = []
         self.routers = []
         self.switches = []
+        self.checks = []
 
     def setOption(self, option, value):
         self.container.setNetOption(option, value)
@@ -96,6 +98,8 @@ class TopologyLoader(object):
                 self.switches = listOfEquipment
             elif typeOfEquipment == self.KW_EVENTS:
                 self.events = listOfEquipment
+            elif typeOfEquipment == self.KW_CHECKS:
+                self.checks = listOfEquipment
             else:
                 raise RuntimeError('Unknown equipment type or keyword')
         # load links last as they require other elements
@@ -104,6 +108,11 @@ class TopologyLoader(object):
         self.loadSwitches()
         self.loadLinks()
         self.loadEvents()
+        self.loadChecks()
+
+    def loadChecks(self):
+        #TODO: implement
+        pass
 
     def registerNode(self, name, node):
         self.nodes[name] = node
@@ -274,7 +283,7 @@ def runTopo(topoFile, simParams, hostOptions, checkLevel):
                 if host.isXHost:
                     makeTerm(host, cmd = host.command)
                 else:
-                    host.cmd("bash %s &" % host.command)
+                    host.pexec("bash %s &" % host.command)
             else:
                 if host.isXHost:
                     makeTerm(host)
@@ -352,6 +361,8 @@ if __name__ == '__main__':
     lg.setLogLevel('info')
 
     DIR = os.path.dirname(os.path.abspath(__file__))
+    ROOT_DIR = os.path.abspath(os.path.join(DIR, '..'))
+
     if getuid() != 0:
         print "Please run this script as root / use sudo."
         exit(-1)
@@ -417,12 +428,16 @@ if __name__ == '__main__':
                         action = 'store_true',
                         default = False,
                         help = 'Force start XTerm terminal for each host')
+    parser.add_argument('--bin-dir',
+                        dest = 'bin_dir',
+                        default = os.path.join(ROOT_DIR, 'bin'))
 
     args = parser.parse_args()
     topoFile = os.path.join(DIR, "data", args.tfile + ".json")
     events.start_time = int(args.start_time)
     # monitorUsage = args.monitorUsage
-
+    import measures
+    measures.setBinDir(args.bin_dir)
     hOpts = {'commandOpts' : "-id {name}"}
     if args.monitor_file:
         monitor_file = args.monitor_file

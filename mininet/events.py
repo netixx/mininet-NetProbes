@@ -61,6 +61,8 @@ def stopEvent(target, event):
     info('* Event %s : Stopping event on %s\n' % (event.id, event.target))
     target.reset()
 
+def resetTarget(target):
+    target.reset()
 
 def runPeriodicEvent(event):
     event.timerRun = Timer(event.repeat, runPeriodicEvent, args = [event])
