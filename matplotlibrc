@@ -1,0 +1,5 @@
+backend : PDF
+font.size : 10.0
+legend.fontsize : medium
+savefig.dpi : 300
+axes.titlesize : 20.0
