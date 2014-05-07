@@ -1,3 +1,3 @@
 #!/bin/bash
 
-/home/mininet/netprobes/start.sh "$@"
+$HOME/netprobes/start.sh "$@"
