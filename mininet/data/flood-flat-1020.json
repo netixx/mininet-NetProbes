@@ -6118,8 +6118,7 @@
             "name" : "h1020",
             "options" : {
                 "ip" : "10.0.5.1",
-                "commandOpts" : "-id {name}@root --wait 10 --commander --add-prefix 10.0.1.1/24 --add-prefix 10.0.2.1/24 --add-prefix 10.0.3.1/24
-                --add-prefix 10.0.4.1/24"
+                "commandOpts" : "-id {name}@root --wait 10 --commander --add-prefix 10.0.1.1/24 --add-prefix 10.0.2.1/24 --add-prefix 10.0.3.1/24 --add-prefix 10.0.4.1/24"
             }
         }
     ],
