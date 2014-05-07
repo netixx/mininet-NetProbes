@@ -14,15 +14,13 @@ import re
 from mininet.net import Mininet
 from mininet.topolib import Topo
 import mininet.log as lg
-from custom_mininet import TCLink, CPULimitedHost, Host,CLI
+from custom_mininet import TCLink, CPULimitedHost, Host, CLI
 from mininet.node import RemoteController
-
 import tools
 import events
 from mininet.term import tunnelX11
 from events import NetEvent
 import monitor
-
 
 
 class CustomTopo(Topo):
@@ -38,7 +36,7 @@ class CustomTopo(Topo):
         if topoFilePath is None:
             raise RuntimeError("No topology file given")
         super(CustomTopo, self).__init__(**opts)
-        self.netOptions = {"host" : Host}
+        self.netOptions = {"host": Host}
         reader = TopologyLoader(topoObj = self, topoFile = topoFilePath, cliParams = pparams)
         reader.loadTopoFromFile()
         self.defaultHostOptions = hostOptions
@@ -51,6 +49,7 @@ class CustomTopo(Topo):
 
     def setNetOption(self, option, value):
         self.netOptions[option] = value
+
 
 class TopologyLoader(object):
     """Loads all the information in the json file"""
@@ -232,7 +231,7 @@ class CustomMininet(Mininet):
             self.nameToNode[name] = l
         return l
 
-    def addHost( self, name, cls=None, **params ):
+    def addHost(self, name, cls = None, **params):
         """Add host.
            name: name of host to add
            cls: custom host class/constructor (optional)
@@ -308,10 +307,12 @@ def runTopo(topoFile, simParams, hostOptions, checkLevel):
             monitor.writeSummary(monitor_file, counter)
         stop(net)
 
+
 def check(net, level):
     if level > 0:
         import check
         check.check(net, level)
+
 
 def startXterm(net):
     for host in net.hosts:
@@ -356,7 +357,9 @@ def makeTerm(node, title = 'Node', term = 'xterm', display = None, cmd = ''):
     term = node.popen(cmds[term] + [display, '-e', 'env TERM=ansi bash ' + cmd])
     return [tunnel, term] if tunnel else [term]
 
+
 monitor_file = ""
+binDir = None
 if __name__ == '__main__':
     lg.setLogLevel('info')
 
@@ -405,9 +408,9 @@ if __name__ == '__main__':
 
     cmds = ncmds.add_argument_group()
     cmds.add_argument('--command',
-                        dest = 'command',
-                        help = 'Command to run on nodes',
-                        default = '$HOME/netprobes/start.sh {commandOpts}')
+                      dest = 'command',
+                      help = 'Command to run on nodes',
+                      default = '$HOME/netprobes/start.sh {commandOpts}')
 
     cmds.add_argument('--strace',
                       dest = 'strace',
@@ -422,23 +425,24 @@ if __name__ == '__main__':
                         default = False,
                         help = 'Monitor each host for network usage')
 
-
     parser.add_argument('--force-x',
                         dest = 'force_x',
                         action = 'store_true',
                         default = False,
                         help = 'Force start XTerm terminal for each host')
+
     parser.add_argument('--bin-dir',
                         dest = 'bin_dir',
-                        default = os.path.join(ROOT_DIR, 'bin'))
+                        default = os.path.join(ROOT_DIR, 'bin'),
+                        help = 'Path to the bin directory')
 
     args = parser.parse_args()
     topoFile = os.path.join(DIR, "data", args.tfile + ".json")
     events.start_time = int(args.start_time)
     # monitorUsage = args.monitorUsage
-    import measures
-    measures.setBinDir(args.bin_dir)
-    hOpts = {'commandOpts' : "-id {name}"}
+    import vars
+    vars.testBinPath = args.bin_dir
+    hOpts = {'commandOpts': "-id {name}"}
     if args.monitor_file:
         monitor_file = args.monitor_file
         monitor.prepareFile(monitor_file)
