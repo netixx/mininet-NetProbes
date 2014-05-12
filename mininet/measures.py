@@ -36,6 +36,9 @@ class DelayStats(object):
                                                                                            self.rttdev
         )
 
+    def printAvg(self):
+        return "{:6.2f}".format(self.rttavg)
+
     def printPackets(self):
         return "t: {:5.1f}, step: {:>3}, sent: {:>2}, received: {:>2}".format(self.timestamp,
                                                                               self.step,
@@ -92,7 +95,7 @@ class BwStats(object):
                 'step': self.step,
                 'sent': self.sent,
                 'received': self.received,
-                'bw' : self.bw}
+                'bw': self.bw}
 
 
 # class LossStats(object):
@@ -113,21 +116,23 @@ class Traceroute(object):
                        'firstTTL': 1,
                        'maxTTL': 30}
 
-    _TRACEROUTE_PACKET_LIMIT = 10
-    _TRACEROUTE = "traceroute {proto} -n -q {npackets} -N {nqueries} -w {wait} -z {sendwait} -f {firstTTL} -m {maxTTL} {target}"
+    _TRACEROUTE_PACKET_LIMIT = 1000
+    _TRACEROUTE = "{exec} {proto} -n -q {npackets} -N {nqueries} -w {wait} -z {sendwait} -f {firstTTL} -m {maxTTL} {target}"
 
     _TR_HEADER = r'traceroute to (\S+) \((\d+\.\d+\.\d+\.\d+)\)'
     _TR_HOP_FAIL = r'\s*(?P<hopnum>\d+)(?:\s+\*)+'
     _TR_HOP_OK = r'\s*(?P<hopnum>\d+)\s+(?P<address>([a-zA-Z0-9]+(?:\.|:)?)+)\s+(?P<times>.*)'
 
     @classmethod
-    def traceroute(cls, node, target, **options):
+    def traceroute(cls, nodes, binDir = None, **options):
         """Perform a traceroute to target from node"""
-        out, err, exitcode = node.pexec(cls._getTracerouteCmd(target.IP(), options))
+        node, target = nodes
+        out, err, exitcode = node.pexec(cls._getTracerouteCmd(binDir = binDir, target = target.IP(), **options))
         return cls._parseTrace(out.decode())
 
     @classmethod
-    def loss(cls, node, target, **options):
+    def loss(cls, nodes, binDir = None, **options):
+        node, target = nodes
         if options.has_key('npackets') and int(options['npackets']) > cls._TRACEROUTE_PACKET_LIMIT:
             res = DelayStats(sent = 0.0, received = 0.0)
             pk = int(options['npackets'])
@@ -139,18 +144,15 @@ class Traceroute(object):
                                  received = r.received + res.received)
                 pk -= cls._TRACEROUTE_PACKET_LIMIT
             return res
-        out, err, exitCode = node.pexec(cls._getTracerouteCmd(target.IP(), options))
+        out, err, exitCode = node.pexec(cls._getTracerouteCmd(binDir = binDir, target = target.IP(), **options))
         return cls.sumTraceDelay(cls._parseTrace(out.decode()))
 
 
     @classmethod
-    def ping(cls, node, target, **options):
+    def ping(cls, nodes, binDir = None, **options):
         """Use traceroute as ping from node to target"""
-        opts = {}
-        opts.update(cls.DEFAULT_OPTIONS)
-        opts['firstTTL'] = 60
-        opts['maxTTL'] = 60
-        out, err, exitcode = node.pexec(cls._getTracerouteCmd(target.IP(), options))
+        node, target = nodes
+        out, err, exitcode = node.pexec(cls._getTracerouteCmd(binDir = binDir, target = target.IP(), firstTTL = 60, maxTTL = 60, **options))
         hops = cls._parseTrace(out.decode())
         return cls.sumTraceDelay(hops)
 
@@ -185,8 +187,11 @@ class Traceroute(object):
                           rttavg = rttavg)
 
     @classmethod
-    def _getTracerouteCmd(cls, target, options = {}):
-        opts = {"target": target}
+    def _getTracerouteCmd(cls, binDir = None, **options):
+        if binDir is None:
+            opts = {'exec': 'traceroute'}
+        else:
+            opts = {'exec': os.path.join(binDir, 'traceroute')}
         opts.update(cls.DEFAULT_OPTIONS)
         opts.update(options)
         if int(opts['npackets']) > cls._TRACEROUTE_PACKET_LIMIT:
@@ -249,30 +254,35 @@ class Traceroute(object):
 
 class Ping(object):
     """Iterface for the ping command"""
-    _PING = "ping -c {npackets} -W {wait} -w {deadline} -i {sendspeed} {target}"
+    _PING = "{exec} -c {npackets} -W {wait} -w {deadline} -i {sendspeed} {target}"
     DEFAULT_OPTIONS = {'npackets': '2',
                        'wait': '1000',
                        'deadline': '1000',
                        'sendspeed': '1'}
 
     @classmethod
-    def ping(cls, node, target, **options):
+    def ping(cls, nodes, binDir = None, **options):
         """Perform ping from node to target"""
-        out, err, exitcode = node.pexec(cls._getPingCmd(target.IP(), options))
+        node, target = nodes
+        out, err, exitcode = node.pexec(cls._getPingCmd(target = target.IP(), **options))
         # if exitcode != 0:
         # if isSweep:
         #     return cls._parseSweepPing(out.decode())
         return cls._parsePing(out.decode())
 
     @classmethod
-    def loss(cls, node, target, **options):
-        out, err, exitcode = node.pexec(cls._getPingCmd(target.IP(), options))
+    def loss(cls, nodes, binDir = None, **options):
+        node, target = nodes
+        out, err, exitcode = node.pexec(cls._getPingCmd(target = target.IP(), **options))
         return cls._parsePing(out.decode())
 
 
     @classmethod
-    def _getPingCmd(cls, target, options = {}):
-        opts = {"target": target}
+    def _getPingCmd(cls, binDir = None, **options):
+        if binDir is None:
+            opts = {'exec': 'ping'}
+        else:
+            opts = {'exec': os.path.join(binDir, 'ping')}
         opts.update(cls.DEFAULT_OPTIONS)
         opts.update(options)
         return cls._PING.format(**opts)
