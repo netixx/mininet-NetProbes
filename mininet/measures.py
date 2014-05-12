@@ -53,7 +53,7 @@ class DelayStats(object):
                 'rttdev': self.rttdev}
 
 
-class BwStats(DelayStats):
+class BwStats(object):
     def __init__(self, timestamp = -1.0, step = -1.0, sent = -1.0, received = -1.0, transfer = -1.0, bw = -1.0, jitter = -1.0, errors = -1.0,
                  loss = -1.0, outoforder = -1.0):
         self.timestamp = timestamp
@@ -86,6 +86,13 @@ class BwStats(DelayStats):
                                                                                                                                self.loss,
                                                                                                                                self.outoforder
         )
+
+    def toDict(self):
+        return {'timestamp': self.timestamp,
+                'step': self.step,
+                'sent': self.sent,
+                'received': self.received,
+                'bw' : self.bw}
 
 
 # class LossStats(object):
