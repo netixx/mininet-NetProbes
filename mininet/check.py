@@ -1,41 +1,35 @@
-__author__ = 'francois'
+"""Module for checking properties on Mininet virtual network
+Currently, bandwidth and delays can be check with the methods provided by
+the measures module"""
 
 import time
 import datetime
-from threading import Timer, Event, Condition, Thread
 import random
 import os
+import json
 
-from mininet.log import info, debug, error
+from mininet.log import info, error
 import events
 from measures import Traceroute, Ping, DelayStats, IPerf, Spruce, IGI, Assolo, Abing
 import vars
 
 
-colors = ['b', 'g', 'c', 'm', 'y', 'k', 'aqua', 'blueviolet',
-          'chartreuse', 'coral', 'crimson', 'darkblue',
-          'darkslateblue', 'firebrick', 'forestgree',
-          'indigo', 'maroon', 'mediumblue', 'navy',
-          'orange', 'orangered', 'purple', 'royalblue',
-          'seagreen', 'slateblue', 'teal', 'tomato']
-
-
 def check(net, level):
+    """Check virtual network
+    :param net : the network to test
+    :param level : level of check, the higher the thorougher
+    """
     if level >= 1:
         net.pingAll()
     if level >= 2:
         checkDelay(net)
-        checkLoss(net)
         checkBw(net)
 
 
-def getColor(item = None):
-    if item is None:
-        return colors[random.randint(0, len(colors) - 1)]
-    return colors[hash(item) % len(colors)]
-
-
 def checkDelay(net):
+    """Check delays on net
+    :param net : net to check
+    """
     info("Checking delays consistency.\n")
     try:
         Delay.check(net)
@@ -43,12 +37,10 @@ def checkDelay(net):
         error('Could not check delays %s\n' % e)
 
 
-def checkLoss(net):
-    info("Checking loss consistency.\n")
-    # Loss.check(net)
-
-
 def checkBw(net):
+    """Check Bandwidth on net
+    :param net : net to check
+    """
     info("Checking bandwidth consistency.\n")
     try:
         Bandwidth.check(net)
@@ -57,6 +49,7 @@ def checkBw(net):
 
 
 class Bandwidth(object):
+    """Set of bandwidth check to perform"""
     net = None
     PAIRS = [('h1', 'h7'), ('h2', 'h6')]
     #bitrate in Mbps
@@ -97,12 +90,15 @@ class Bandwidth(object):
     }
 
     @classmethod
-    def getTimeStamp(cls):
+    def _getTimeStamp(cls):
         return time.time() - cls.time_start
 
 
     @classmethod
     def check(cls, net):
+        """Check this net
+        :param net: net to check
+        """
         cls.net = net
         # get a baseline
         pairs = cls._strToNodes(cls.PAIRS)
@@ -110,39 +106,39 @@ class Bandwidth(object):
             method['pairs'] = [cls.HostStats(pair[0], pair[1], name) for pair in pairs]
         info("&&& Selected pairs : %s\n" % ", ".join(["(%s, %s)" % pair for pair in cls.PAIRS]))
         info("&&& Selected methods : %s\n" % ", ".join(cls.methods.keys()))
-        cls.getBaselines(cls.methods)
+        cls._getBaselines(cls.methods)
         info("&&& Steps for this run %s\n" % (", ".join(["%sMpbs" % step for step in cls.STEPS])))
         info("&&& Running tests\n")
         for name, method in cls.methods.iteritems():
             info("\n&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&\n")
             info("&& Running test for method %s\n" % name)
-            cls.runSteps(method)
+            cls._runSteps(method)
         info("&&& All tests are done\n")
         cls.makeResults(cls.methods, saveResults = True)
 
 
     @classmethod
-    def runSteps(cls, method):
+    def _runSteps(cls, method):
         cls.time_start = time.time()
         method['real_steps'] = []
         for step in cls.STEPS:
-            cls.runStep(step, method)
+            cls.__runStep(step, method)
         #for step graph
-        method['real_steps'].append((cls.STEPS[-1], cls.getTimeStamp()))
-        cls.resetEvent()
+        method['real_steps'].append((cls.STEPS[-1], cls._getTimeStamp()))
+        cls._resetEvent()
 
     @classmethod
-    def runStep(cls, step, method):
+    def __runStep(cls, step, method):
         info("&& Testing next step %sMbps\n" % step)
-        method['real_steps'].append((step, cls.getTimeStamp()))
-        cls.makeEvent(step)
+        method['real_steps'].append((step, cls._getTimeStamp()))
+        cls._makeEvent(step)
         time.sleep(cls._START_WAIT)
-        cls.getSamples(step, method['pairs'], method['method'], method['options'])
+        cls.__getSamples(step, method['pairs'], method['method'], method['options'])
         time.sleep(cls._STOP_WAIT)
 
 
     @classmethod
-    def getSamples(cls, step, pairs, method, options = {}):
+    def __getSamples(cls, step, pairs, method, options = {}):
         info("& Getting samples : ")
         options['bw'] = "%sM" % step
         for i in range(1, cls.SAMPLE_NUMBER + 1):
@@ -150,7 +146,7 @@ class Bandwidth(object):
             for pair in pairs:
                 bw = method((pair.host, pair.target), **options)
                 bw.step = step
-                bw.timestamp = cls.getTimeStamp()
+                bw.timestamp = cls._getTimeStamp()
                 # if ping.sent > 0:
                 pair.measures.append(bw)
                 info("({:.2f}M) ".format(bw.bw / (1000.0 ** 2)))
@@ -158,30 +154,30 @@ class Bandwidth(object):
         info("\n")
 
     @classmethod
-    def getBaselines(cls, methods):
+    def _getBaselines(cls, methods):
         info("&& Getting baselines\n")
         for name, method in methods.iteritems():
             info("& Getting baseline for method %s\n" % name)
-            cls.setBaseline(method['pairs'], method['method'], method['options'])
+            cls.__setBaseline(method['pairs'], method['method'], method['options'])
         info("&& Baselines done\n")
 
     @classmethod
-    def setBaseline(cls, pairs, method, options = {}):
+    def __setBaseline(cls, pairs, method, options = {}):
         for pair in pairs:
             pair.baseline = method((pair.host, pair.target), **options)
 
 
     @classmethod
-    def makeEvent(cls, delay):
-        events.runEvent(cls._getEvent(delay), cls.net)
+    def _makeEvent(cls, delay):
+        events.runEvent(cls.__getEvent(delay), cls.net)
 
     @classmethod
-    def _getEvent(cls, bw, target = 'l11'):
+    def __getEvent(cls, bw, target = 'l11'):
         return events.NetEvent(target = target,
                                variations = {'bw': bw})
 
     @classmethod
-    def resetEvent(cls, target = 'l11'):
+    def _resetEvent(cls, target = 'l11'):
         events.resetTarget(cls.net.get(target))
 
 
@@ -190,11 +186,13 @@ class Bandwidth(object):
         return [(cls.net.getNodeByName(s1), cls.net.getNodeByName(s2)) for s1, s2 in pairs]
 
     class HostStats(object):
-        def __init__(self, host, target, method = ''):
+        """Storage for results"""
+
+        def __init__(self, host, target, method = '', baseline = None, measures = []):
             self.host = host
             self.target = target
-            self.measures = []
-            self.baseline = None
+            self.measures = measures
+            self.baseline = baseline
             self.method = method
 
         def subtrackBaseline(self, ping):
@@ -202,10 +200,7 @@ class Bandwidth(object):
                               ping.step,
                               ping.sent,
                               ping.received,
-                              ping.rttmin - self.baseline.rttmin,
-                              ping.rttavg - self.baseline.rttavg,
-                              ping.rttmax - self.baseline.rttmax,
-                              ping.rttdev)
+                              ping.bw - self.baseline.bw)
 
         def getPair(self):
             return self.host.name, self.target.name
@@ -228,6 +223,8 @@ class Bandwidth(object):
 
     @classmethod
     def saveResults(cls, methods):
+        """Save results to json file
+        :param methods: results to save"""
         info('Saving bandwidth results\n')
         import json
 
@@ -238,28 +235,56 @@ class Bandwidth(object):
             results[name]['real_steps'] = method['real_steps']
             for pair in method['pairs']:
                 results[name]['pairs'].append(pair.toDict())
-        fn = "checks/bw_%s.json"%datetime.datetime.now()
+        fn = "checks/bw_%s.json" % datetime.datetime.now()
         json.dump(results, open(fn, 'w'))
+        return fn
+
+    @classmethod
+    def loadResults(cls, jsonFile):
+        """Load results from json file
+        :param jsonFile : file to load"""
+        ms = json.load(open(jsonFile, 'r'))
+        methods = {}
+
+        class Host(object):
+            def __init__(self, name):
+                self.name = name
+        for name, method_data in ms.iteritems():
+            methods[name] = {}
+            methods[name]['pairs'] = []
+            methods[name]['real_steps'] = method_data['real_steps']
+            for pairdata in method_data['pairs']:
+                s = cls.HostStats(method = name,
+                                  host = Host(pairdata['host']),
+                                  target = Host(pairdata['target']),
+                                  baseline = DelayStats(**pairdata['baseline']),
+                                  measures = [DelayStats(**m) for m in pairdata['measures']])
+                methods[name]['pairs'].append(s)
+        info("Loading bw results done.\n")
+        return methods
 
     @classmethod
     def makeResults(cls, methods, saveResults = True):
-        try:
-            if saveResults:
-                cls.saveResults(methods)
-        except:
-            pass
+        """Make result to graphics
+        :param methods : results to process
+        :param saveResults : save results to json file ?"""
+        if saveResults:
+            try:
+                fn = cls.saveResults(methods)
+                info("Saved bandwidth results to file %s\n" % fn)
+            except Exception as e:
+                error("Could not save bandwidth results : %s\n" % e)
 
         import numpy as np
-        import matplotlib.pyplot as plt
         from matplotlib.backends.backend_pdf import PdfPages
 
         nmethods = len(methods)
         line = 1
         ncols = 1
         nlines = nmethods
-        nbins = 15
+        # nbins = 15
         #dict(step : dict(method, data))
-        mboxes = {}
+        # mboxes = {}
         try:
             pdf = PdfPages('checks/bw.pdf')
             for name, method in methods.iteritems():
@@ -267,9 +292,6 @@ class Bandwidth(object):
                 for pair in method['pairs']:
                     info(pair.printAll())
                 avgs = {}
-                # rdiffs = {}
-                # adiffs = {}
-                # devs = {}
                 ts = {}
                 steps = zip(*method['real_steps'])
                 step_time = np.array((0,) + steps[1])
@@ -277,81 +299,31 @@ class Bandwidth(object):
 
                 for pair in method['pairs']:
                     avg = map(lambda measure: measure.bw / (1000 ** 2), pair.measures)
-                    # adiff = map(lambda measure: pair.subtrackBaseline(measure).rttavg - 2 * measure.step, pair.measures)
-                    # rdiff = map(lambda measure: abs(pair.subtrackBaseline(measure).rttavg) / (2 * measure.step + 1), pair.measures)
-                    # dev = map(lambda measure: measure.rttdev, pair.measures)
-                    # for measure in pair.measures:
-                    #     if not mboxes.has_key(measure.step):
-                    #         mboxes[measure.step] = {}
-                    #     if not mboxes[measure.step].has_key(name):
-                    #         mboxes[measure.step][name] = []
-                    #     mboxes[measure.step][name].append(measure.rttavg)
-                    #     mboxes[measure.step][name].append(pair.subtrackBaseline(measure).rttavg)
 
                     t = map(lambda measure: measure.timestamp, pair.measures)
                     avgs[pair.getPair()] = np.array(avg)
-                    # rdiffs[pair.getPair()] = np.array(rdiff)
-                    # adiffs[pair.getPair()] = np.array(adiff)
-                    # devs[pair.getPair()] = np.array(dev)
                     ts[pair.getPair()] = np.array(t)
 
 
                 # plot the data
-                plt.subplot(nlines, ncols, line)
+                Graph.subplot(nlines, ncols, line)
                 for pair in method['pairs']:
-                    plt.plot(ts[pair.getPair()], avgs[pair.getPair()], getColor(pair.getPair()) + '.',
+                    Graph.plot(ts[pair.getPair()], avgs[pair.getPair()], color = Graph.Graph.getColor(pair.getPair()) + '.',
                              label = "%s,%s" % pair.getPair())
-                    plt.hold(True)
-                plt.step(step_time, step_values, 'r', where = 'post')
-                plt.xlabel('Time (s)', fontsize = 10)
-                plt.ylabel('BW estimation with %s (Mbps)' % name, fontsize = 10)
-                ax = plt.gca()
+                    Graph.hold(True)
+                Graph.step(step_time, step_values, 'r', where = 'post')
+                Graph.xlabel('Time (s)', fontsize = 10)
+                Graph.ylabel('BW estimation with %s (Mbps)' % name, fontsize = 10)
+                ax = Graph.gca()
                 ax.set_yscale('log')
-                plt.legend(loc = 2)
-                # plt.subplot(nlines, ncols, line + 1)
-                # plt.hist(rdiffs.values(), nbins, normed = 1,
-                #          label = ["%s,%s" % x for x in rdiffs.keys()])
-                # plt.legend(loc = 'upper left', bbox_to_anchor = (0.9, 1.0), ncol = 1)
-                # plt.xlabel('Relative error')
-                # plt.subplot(nlines, ncols, line + 2)
-                # plt.hist(adiffs.values(), nbins,
-                #          label = ["%s,%s" % x for x in adiffs.keys()])
-                # plt.legend(loc = 'upper left', bbox_to_anchor = (0.9, 1.0), ncol = 1)
-                # plt.xlabel('Absolute error')
-                # plt.hist(diffs.values(), stacked = True)
-                # plt.xticks(bins, ["2^%s" % i for i in bins])
-                # plt.hold(True)
-                # plt.plot(steps_time, steps_val, 'r,-')
-                #         plt.axis([0, 60, 0, 2000])
-                # ax = plt.gca()
-                # ax.yaxis.grid(True, linestyle = '-', which = 'major', color = 'lightgrey',
-                #                alpha = 0.5)
-                plt.draw()
+                Graph.legend(loc = 2)
+                Graph.draw()
                 line += ncols
-            fig = plt.gcf()
+            fig = Graph.gcf()
             fig.set_size_inches(20, 20)
             pdf.savefig(bbox_inches = 'tight')  #'checks/delay.pdf', format = 'pdf', )
-            plt.close()
+            Graph.close()
 
-            #compare methods to each other
-            # plt.clf()
-            # nstep = 1
-            # for step in sorted(mboxes.keys()):
-            #     m_datas = mboxes[step]
-            #     plt.subplot(1, nmethods, nstep)
-            #     plt.boxplot(m_datas.values(), sym = '^')
-            #     ax = plt.gca()
-            #     ax.set_xticklabels(m_datas.keys())
-            #     ax.yaxis.grid(True, linestyle = '-', which = 'major', color = 'lightgrey', alpha = 0.5)
-            #     plt.xlabel('Measurement method')
-            #     plt.ylabel('Measured delays - baseline')
-            #     plt.title('Measures for step 2x%sms' % step)
-            #     nstep += 1
-            # fig = plt.gcf()
-            # fig.set_size_inches(30, 14)
-            # pdf.savefig(bbox_inches = 'tight')  #'checks/boxdelay.pdf', format = 'pdf', )
-            # plt.close()
-            #
             d = pdf.infodict()
             d['Title'] = 'Delays measurement'
             d['Author'] = u'Francois Espinet'
@@ -360,7 +332,7 @@ class Bandwidth(object):
             d['ModDate'] = datetime.datetime.today()
         finally:
             pdf.close()
-        plt.show()
+        Graph.show()
 
 
 class Delay(object):
@@ -375,7 +347,7 @@ class Delay(object):
     SAMPLE_DEADLINE = 5
     #number of packets per sample/baseline
     PACKET_NUMBER = 4
-    BL_PACKET_NUMBER = 10
+    BL_PACKET_NUMBER = 30
     #rate at which to send the packets
     SEND_SPEED = 0.3
     # consider packet lost if it arrives after WAIT_FACTOR * step * 2
@@ -428,7 +400,7 @@ class Delay(object):
     }
 
     @classmethod
-    def getTimeStamp(cls):
+    def _getTimeStamp(cls):
         return time.time() - cls.time_start
 
 
@@ -441,52 +413,52 @@ class Delay(object):
             method['pairs'] = [cls.HostStats(pair[0], pair[1], name) for pair in pairs]
         info("&&& Selected pairs : %s\n" % ", ".join(["(%s, %s)" % pair for pair in cls.PAIRS]))
         info("&&& Selected methods : %s\n" % ", ".join(cls.methods.keys()))
-        cls.getBaselines(cls.methods)
+        cls._getBaselines(cls.methods)
         info("&&& Steps for this run %s, time to complete : %s \n" % (", ".join(["%sms" % step for step in cls.STEPS]),
                                                                       "%s" % datetime.timedelta(seconds = sum(cls.times) * len(cls.methods)) ))
         info("&&& Running tests\n")
         for name, method in cls.methods.iteritems():
             info("\n&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&\n")
             info("&& Running test for method %s\n" % name)
-            cls.runSteps(method)
+            cls._runSteps(method)
         info("&&& All tests are done\n")
         cls.makeResults(cls.methods, saveResults = True)
 
 
     @classmethod
-    def runSteps(cls, method):
+    def _runSteps(cls, method):
         cls.time_start = time.time()
         method['real_steps'] = []
         for step in cls.STEPS:
-            cls.runStep(step, method)
+            cls.__runStep(step, method)
         #for step graph
-        method['real_steps'].append((cls.STEPS[-1], cls.getTimeStamp()))
-        cls.resetEvent()
+        method['real_steps'].append((cls.STEPS[-1], cls._getTimeStamp()))
+        cls._resetEvent()
 
     @classmethod
     def getWaitTime(cls, step):
         return 5.0  #float(2 * step * cls.WAIT_FACTOR) / 1000.0
 
     @classmethod
-    def runStep(cls, step, method):
+    def __runStep(cls, step, method):
         info("&& Testing next step %sms\n" % step)
-        method['real_steps'].append((step, cls.getTimeStamp()))
-        cls.makeEvent(step)
+        method['real_steps'].append((step, cls._getTimeStamp()))
+        cls._makeEvent(step)
         time.sleep(cls._START_WAIT)
         method['options']['wait'] = cls.getWaitTime(step)
-        cls.getSamples(step, method['pairs'], method['method'], method['options'])
+        cls._getSamples(step, method['pairs'], method['method'], method['options'])
         time.sleep(cls._STOP_WAIT)
 
 
     @classmethod
-    def getSamples(cls, step, pairs, method, options = {}):
+    def _getSamples(cls, step, pairs, method, options = {}):
         info("& Getting samples : ")
         for i in range(1, cls.SAMPLE_NUMBER + 1):
             info("%s " % i)
             for pair in pairs:
                 ping = method(pair.host, pair.target, **options)
                 ping.step = step
-                ping.timestamp = cls.getTimeStamp()
+                ping.timestamp = cls._getTimeStamp()
                 # if ping.sent > 0:
                 pair.measures.append(ping)
                 info("({:.2f}) ".format(ping.rttavg))
@@ -494,30 +466,30 @@ class Delay(object):
         info("\n")
 
     @classmethod
-    def getBaselines(cls, methods):
+    def _getBaselines(cls, methods):
         info("&& Getting baselines\n")
         for name, method in methods.iteritems():
             info("& Getting baseline for method %s\n" % name)
-            cls.setBaseline(method['pairs'], method['method'], method['blOptions'])
+            cls.__setBaseline(method['pairs'], method['method'], method['blOptions'])
         info("&& Baselines done\n")
 
     @classmethod
-    def setBaseline(cls, pairs, method, options = {}):
+    def __setBaseline(cls, pairs, method, options = {}):
         for pair in pairs:
             pair.baseline = method(pair.host, pair.target, **options)
 
 
     @classmethod
-    def makeEvent(cls, delay):
-        events.runEvent(cls._getEvent(delay), cls.net)
+    def _makeEvent(cls, delay):
+        events.runEvent(cls.__getEvent(delay), cls.net)
 
     @classmethod
-    def _getEvent(cls, delay, target = 'l11'):
+    def __getEvent(cls, delay, target = 'l11'):
         return events.NetEvent(target = target,
                                variations = {'delay': "%sms" % delay})
 
     @classmethod
-    def resetEvent(cls, target = 'l11'):
+    def _resetEvent(cls, target = 'l11'):
         events.resetTarget(cls.net.get(target))
 
 
@@ -526,11 +498,13 @@ class Delay(object):
         return [(cls.net.getNodeByName(s1), cls.net.getNodeByName(s2)) for s1, s2 in pairs]
 
     class HostStats(object):
-        def __init__(self, host, target, method = ''):
+        """Storage for delay results"""
+
+        def __init__(self, host, target, method = '', baseline = None, measures = []):
             self.host = host
             self.target = target
-            self.measures = []
-            self.baseline = None
+            self.measures = measures
+            self.baseline = baseline
             self.method = method
 
         def subtrackBaseline(self, ping):
@@ -564,6 +538,8 @@ class Delay(object):
 
     @classmethod
     def saveResults(cls, methods):
+        """Save results to json file
+        :param methods: results to save"""
         info('Saving delay results\n')
         import json
 
@@ -574,19 +550,47 @@ class Delay(object):
             results[name]['real_steps'] = method['real_steps']
             for pair in method['pairs']:
                 results[name]['pairs'].append(pair.toDict())
-        fn = "checks/delay_%s.json"%datetime.datetime.now()
+        fn = "checks/delay_%s.json" % datetime.datetime.now()
         json.dump(results, open(fn, 'w'))
+        return fn
+
+    @classmethod
+    def loadResults(cls, jsonFile):
+        """Load results from json file
+        :param jsonFile : json format file to load from"""
+        ms = json.load(open(jsonFile, 'r'))
+        methods = {}
+        class Host(object):
+            def __init__(self, name):
+                self.name = name
+        for name, method_data in ms.iteritems():
+            methods[name] = {}
+            methods[name]['pairs'] = []
+            methods[name]['real_steps'] = method_data['real_steps']
+            for pairdata in method_data['pairs']:
+                s = cls.HostStats(method = name,
+                                  host = Host(pairdata['host']),
+                                  target = Host(pairdata['target']),
+                                  baseline = DelayStats(**pairdata['baseline']),
+                                  measures = [DelayStats(**m) for m in pairdata['measures']])
+                methods[name]['pairs'].append(s)
+        info("Loading delay results done\n")
+        return methods
+
 
     @classmethod
     def makeResults(cls, methods, saveResults = True):
-        try:
-            if saveResults:
-                cls.saveResults(methods)
-        except:
-            pass
+        """Process results and produce graphics
+        :param methods: results to save
+        :param saveResults: save results to file ?"""
+        if saveResults:
+            try:
+                fn = cls.saveResults(methods)
+                info("Saved delay results to file %s\n" % fn)
+            except Exception as e:
+                error("Could not save delay results : %s\n" % e)
 
         import numpy as np
-        import matplotlib.pyplot as plt
         from matplotlib.backends.backend_pdf import PdfPages
 
         nmethods = len(methods)
@@ -637,31 +641,30 @@ class Delay(object):
 
 
                 # plot the data
-                plt.subplot(nlines, ncols, line)
+                Graph.subplot(nlines, ncols, line)
                 for pair in method['pairs']:
-                    plt.errorbar(ts[pair.getPair()], avgs[pair.getPair()],
+                    Graph.errorbar(ts[pair.getPair()], avgs[pair.getPair()],
                                  yerr = devs[pair.getPair()],
                                  fmt = '.',
-                                 color = getColor(pair.getPair()),
+                                 color = Graph.getColor(pair.getPair()),
                                  label = "%s,%s" % pair.getPair())
-                    plt.hold(True)
-                plt.step(step_time, step_values, 'r', where = 'post')
-                plt.xlabel('Time (s)', fontsize = 10)
-                plt.ylabel('RTT time for %s' % name, fontsize = 10)
-                plt.legend(loc = 2)
-                plt.subplot(nlines, ncols, line + 1)
-                n, bins, patches = plt.hist(rdiffs.values(), nbins,
+                    Graph.hold(True)
+                Graph.step(step_time, step_values, 'r', where = 'post',
+                         g_xlabel = 'Time (s)',
+                         g_ylabel = 'RTT time for %s' % name)
+                Graph.legend(loc = 2)
+                Graph.subplot(nlines, ncols, line + 1)
+                n, bins, patches = Graph.hist(rdiffs.values(), nbins,
                                             normed = 1,
-                                            label = ["%s,%s" % x for x in rdiffs.keys()])
-                plt.legend(loc = 'upper left', bbox_to_anchor = (0.9, 1.0), ncol = 1)
-                plt.xlabel('Logarithmic Relative error')
-                ax = plt.gca()
+                                            label = ["%s,%s" % x for x in rdiffs.keys()],
+                                            g_xlabel = 'Logarithmic Relative error')
+                Graph.legend(loc = 'upper left', bbox_to_anchor = (0.9, 1.0), ncol = 1)
                 # ax.set_xticklabels([lab.get_text() for lab in ax.get_xaxis().get_ticklabels()])
-                plt.subplot(nlines, ncols, line + 2)
-                plt.hist(adiffs.values(), nbins,
-                         label = ["%s,%s" % x for x in adiffs.keys()])
-                plt.legend(loc = 'upper left', bbox_to_anchor = (0.9, 1.0), ncol = 1)
-                plt.xlabel('Absolute error')
+                Graph.subplot(nlines, ncols, line + 2)
+                Graph.hist(adiffs.values(), nbins,
+                           label = ["%s,%s" % x for x in adiffs.keys()],
+                           g_xlabel = 'Absolute error')
+                Graph.legend(loc = 'upper left', bbox_to_anchor = (0.9, 1.0), ncol = 1)
                 # plt.hist(diffs.values(), stacked = True)
                 # plt.xticks(bins, ["2^%s" % i for i in bins])
                 # plt.hold(True)
@@ -670,18 +673,18 @@ class Delay(object):
                 # ax = plt.gca()
                 # ax.yaxis.grid(True, linestyle = '-', which = 'major', color = 'lightgrey',
                 #                alpha = 0.5)
-                plt.draw()
+                Graph.draw()
                 line += ncols
-            fig = plt.gcf()
+            fig = Graph.gcf()
             fig.set_size_inches(50, 20)
             pdf.savefig(bbox_inches = 'tight')  #'checks/delay.pdf', format = 'pdf', )
-            plt.close()
+            Graph.close()
 
             #compare methods to each other
             ncols = nmethods + 1
-            plt.clf()
+            Graph.clf()
 
-            plt.subplot(1, ncols, 1)
+            Graph.subplot(1, ncols, 1)
             bl = mboxes.pop('baseline')
             d = 1.0 / len(methods)
             #make sure we iterate with the same order over methods
@@ -691,42 +694,37 @@ class Delay(object):
                 for me in mets:
                     vals[0].append(data[me][0])
                     vals[1].append(data[me][1])
-                plt.errorbar([d + i for i in range(1, len(mets) + 1)],
+                Graph.errorbar([d + i for i in range(1, len(mets) + 1)],
                              vals[0],
                              yerr = vals[1],
                              fmt = '.',
-                             color = getColor(pair),
+                             color = Graph.getColor(pair),
                              label = '%s,%s' % pair)
-                plt.hold = True
+                Graph.hold = True
                 d += 1.0 / len(methods)
             for l in range(1, len(mets) + 1):
-                plt.axvspan(l, l + 1, facecolor = getColor(mets[l - 1]), alpha = 0.1, hold = True)  #, linestyle = '--')
-            plt.legend(loc = 2)
-            ax = plt.gca()
-            plt.xticks([0.5 + i for i in range(0, len(methods) + 1)])
-            ax.set_xticklabels(['', ] + mets)
-            ax.yaxis.grid(True, linestyle = '-', which = 'major', color = 'lightgrey', alpha = 0.5)
-            plt.xlabel('Measurement method')
-            plt.ylabel('Measured delays with stddev (ms)')
-            plt.title('Baseline for all methods')
+                Graph.axvspan(l, l + 1, facecolor = Graph.getColor(mets[l - 1]), alpha = 0.1, hold = True)  #, linestyle = '--')
+            Graph.legend(loc = 2)
+            Graph.decorate(g_xtickslab = ['', ] + mets, g_xticks = [0.5 + i for i in range(0, len(methods) + 1)],
+                           g_grid = True,
+                           g_xlabel = 'Measurement method', g_ylabel = 'Measured delays with stddev (ms)',
+                           g_title = 'Baseline for all methods')
 
             nstep = 2
             for step in sorted(mboxes.keys()):
                 m_datas = mboxes[step]
-                plt.subplot(1, ncols, nstep)
-                plt.boxplot([m_datas[met] for met in mets], sym = '^')
-                ax = plt.gca()
-                ax.set_xticklabels(m_datas.keys())
-                ax.yaxis.grid(True, linestyle = '-', which = 'major', color = 'lightgrey', alpha = 0.5)
-                plt.xlabel('Measurement method')
-                plt.ylabel('Measured delays - baseline (ms)')
-                plt.title('Measures for step 2x%sms' % step)
-                plt.axhline(2 * step, color = 'r')
+                Graph.subplot(1, ncols, nstep)
+                Graph.boxplot([m_datas[met] for met in mets], sym = '^',
+                              g_xtickslab = m_datas.keys(), g_grid = True,
+                              g_xlabel = 'Measurement method', g_ylabel = 'Measured delays - baseline (ms)',
+                              g_title = 'Measures for step 2x%sms' % step)
+
+                Graph.axhline(2 * step, color = 'r')
                 nstep += 1
-            fig = plt.gcf()
+            fig = Graph.gcf()
             fig.set_size_inches(35, 14)
             pdf.savefig(bbox_inches = 'tight')  #'checks/boxdelay.pdf', format = 'pdf', )
-            plt.close()
+            Graph.close()
 
             d = pdf.infodict()
             d['Title'] = 'Delays measurement'
@@ -736,284 +734,68 @@ class Delay(object):
             d['ModDate'] = datetime.datetime.today()
         finally:
             pdf.close()
-        plt.show()
+        Graph.show()
 
 
-class Loss(object):
-    net = None
-    #(delay (in ms), duration)
-    # STEPS = [(0, 10), (0.01, 10), (0.1, 10)]#, (1, 30), (5, 40), (0, 0)]
-    STEPS = [(0, 10), (0.01, 10), (0.1, 10), (1, 10), (5, 10)]
-    #wait at most WAIT_TIME second before considering packet lost
-    WAIT_TIME = 0.001
-    #wait no more than 60 seconds for each test
-    DEADLINE = 60
-    PACKET_NUMBER = 1000
-    SEND_SPEED = 0.21
+class _PyplotGraph(type):
+    """Interface with the pyplot object"""
 
-    real_steps = []
-    time_start = None
-    step_counter = 0
-    test_done = None
-    step = None
-    step_up_done = Event()
-    tests_lock = Condition()
-    tests = 0
-
-    methods = {
-        'udp': {'method': Traceroute.loss,
-                'options': {'npackets': '100',
-                            'proto': Traceroute.P_UDP}
-        },
-        'ping': {'method': Ping.ping,
-                 'options': {'deadline': DEADLINE,
-                             'npackets': PACKET_NUMBER,
-                             'wait': WAIT_TIME,
-                             'sendspeed': SEND_SPEED}
-        },
-        'tcp': {'method': Traceroute.loss,
-                'options': {'npackets': '100',
-                            'proto': Traceroute.P_TCP}
-        },
-        'traceping': {'method': Traceroute.loss,
-                      'options': {'npackets': '100',
-                                  'proto': Traceroute.P_ICMP}
-        },
-    }
-
-    @classmethod
-    def getTimeStamp(cls):
-        return time.time() - cls.time_start
-
-
-    @classmethod
-    def getStep(cls):
-        return cls.step[0]
-
-
-    @classmethod
-    def check(cls, net):
-        cls.net = net
-        # get a baseline
-        p = [('h1', 'h7'), ('h2', 'h6')]
-        p = cls._strToNodes(p)
-        for name, method in cls.methods.iteritems():
-            method['pairs'] = [cls.HostStats(pair[0], pair[1], name) for pair in p]
-
-        info("Steps for this run %s\n" % repr(cls.STEPS))
-        info("Running test\n")
-        cls.runStepChain()
-        for method in cls.methods.viewvalues():
-            t = Thread(target = cls.measureLoss, args = [method['pairs'], method['method'], method['options']])
-            t.daemon = True
-            t.start()
-        cls.test_done.wait()
-        info("Tests are done\n")
-        cls.makeResults(cls.methods)
-
-    @classmethod
-    def runStepChain(cls):
-        cls.tests = 0
-        cls.time_start = time.time()
-        cls.step_counter = 0
-        cls.test_done = Event()
-        cls.stepUp()
-
-    @classmethod
-    def stepUp(cls):
-        info("Waiting for next step\n")
-        cls.step_up_done.clear()
-        cls._waitTests()
-        if cls.step_counter >= len(cls.STEPS):
-            cls.test_done.set()
-            #for step graph
-            cls.real_steps.append((cls.getStep(), cls.getTimeStamp()))
-            return
-        step = cls.STEPS[cls.step_counter]
-        info("Testing next step %s\n" % repr(step))
-        cls.step = step
-        cls.real_steps.append((step[0], cls.getTimeStamp()))
-        cls.makeEvent(step[0])
-        cls.step_counter += 1
-        cls.step_up_done.set()
-        Timer(step[1], cls.stepUp).start()
-
-    @classmethod
-    def _waitTests(cls):
-        with cls.tests_lock:
-            while cls.tests > 0:
-                cls.tests_lock.wait()
-
-    @classmethod
-    def _addTest(cls):
-        with cls.tests_lock:
-            cls.tests += 1
-            cls.tests_lock.notifyAll()
-
-    @classmethod
-    def _rmTest(cls):
-        with cls.tests_lock:
-            cls.tests -= 1
-            cls.tests_lock.notifyAll()
-
-    @classmethod
-    def _strToNodes(cls, pairs):
-        return [(cls.net.getNodeByName(s1), cls.net.getNodeByName(s2)) for s1, s2 in pairs]
-
-    @classmethod
-    def measureLoss(cls, pairs, method, options = {}):
-        for pair in pairs:
-            t = Thread(target = cls.measureLossPair, args = [pair, method, options])
-            t.daemon = True
-            t.start()
-
-    @classmethod
-    def measureLossPair(cls, pair, method, options = {}):
-        while not cls.test_done.is_set():
-            info("Starting a loss test\n")
-            try:
-                cls.step_up_done.wait()
-                cls._addTest()
-                step = cls.getStep()
-                ping = method(pair.host, pair.target, **options)
-                ping.step = step
-                ping.timestamp = cls.getTimeStamp()
-                if ping.sent > 0:
-                    pair.measures.append(ping)
-            finally:
-                cls._rmTest()
-
-
-    @classmethod
-    def makeEvent(cls, loss):
-        events.runEvent(cls._getEvent(loss), cls.net)
-
-    @classmethod
-    def _getEvent(cls, loss, target = 'l11'):
-        return events.NetEvent(target = target,
-                               variations = {'loss': loss})
-
-
-    @classmethod
-    def makeResults(cls, methods):
+    def __new__(mcs, *args, **kwargs):
+        #import pyplot and register  it
         import matplotlib.pyplot as plt
-        import numpy as np
+        mcs.plt = plt
+        return type.__new__(mcs, *args, **kwargs)
 
-        line = 1
-        ncols = 2
-        nmethods = len(methods)
-        nbins = 15
-        st = zip(*map(lambda x: (2 * x[0], x[1]), cls.real_steps))
-        step_time = np.array((0,) + st[1])
-        step_values = np.array((0,) + st[0])
-        for name, method in methods.iteritems():
-            losses = {}
-            diffs = {}
-            ts = {}
-            info("Result of measures :\n")
-            for pair in method['pairs']:
-                info(pair.printAll())
+    def __getattr__(cls, item):
+        def decorate( *args, **kwargs):
+            o = getattr(cls.plt, item)(*args, **cls.decorate(g_filter = True,**kwargs))
+            cls.decorate(**kwargs)
+            return o
+        return decorate
 
-            for pair in method['pairs']:
-                loss = map(lambda measure: float(measure.sent - measure.received) / float(measure.sent) * 100, pair.measures)
-                diff = map(lambda measure: float(measure.sent - measure.received) / float(measure.sent) * 100 - 2 * measure.step, pair.measures)
-                t = map(lambda measure: measure.timestamp, pair.measures)
-                losses[pair.getPair()] = np.array(loss)
-                diffs[pair.getPair()] = np.array(diff)
-                ts[pair.getPair()] = np.array(t)
-
-
-            # plot the data
-            plt.subplot(nmethods, ncols, line)
-            for pair in method['pairs']:
-                plt.scatter(ts[pair.getPair()], losses[pair.getPair()], color = getColor(pair.getPair()), label = "%s,%s" % pair.getPair())
-                plt.hold(True)
-            plt.step(step_time, step_values, 'r', where = 'post')
-            plt.xlabel('Time (s)', fontsize = 10)
-            plt.ylabel('Loss %s' % name, fontsize = 10)
-            plt.legend(loc = 2)
-            plt.subplot(nmethods, ncols, line + 1)
-            plt.hist(diffs.values(), nbins, normed = 1,
-                     label = ["%s,%s" % x for x in diffs.keys()])
-            plt.legend(loc = 'upper left', bbox_to_anchor = (1.0, 1.0), ncol = 1)
-
-            # plt.hist(diffs.values(), stacked = True)
-            # plt.xticks(bins, ["2^%s" % i for i in bins])
-            # plt.hold(True)
-            # plt.plot(steps_time, steps_val, 'r,-')
-            #         plt.axis([0, 60, 0, 2000])
-            plt.draw()
-            line += ncols
-        fig = plt.gcf()
-        fig.set_size_inches(10, 14)
-        plt.savefig('checks/loss.pdf', format = 'pdf', bbox_inches = 'tight')
-        plt.show()
+    def decorate(cls, g_filter = False, g_grid = False, g_xtickslab = None, g_xticks = None,
+            g_xlabel = None, g_ylabel = None, g_title = None,
+            **kwargs):
+        if g_filter:
+            return kwargs
+        ax = cls.plt.gca()
+        if g_grid:
+            ax.yaxis.grid(True, linestyle = '-', which = 'major', color = 'lightgrey', alpha = 0.5)
+        if g_xlabel:
+            cls.plt.xlabel(g_xlabel)
+        if g_ylabel:
+            cls.plt.ylabel(g_ylabel)
+        if g_title:
+            cls.plt.title(g_title)
+        if g_xticks:
+            cls.xticks(g_xticks)
+        if g_xtickslab:
+            ax.set_xticklabels(g_xtickslab)
 
 
-    class HostStats(object):
-        def __init__(self, host, target, method = ''):
-            self.host = host
-            self.target = target
-            self.measures = []
-            self.baseline = None
-            self.method = method
+class Graph(object):
+    """Properties for making graphs and interface to graph object"""
+    __metaclass__ = _PyplotGraph
 
-        def getPair(self):
-            return self.host.name, self.target.name
+    colors = ['b', 'g', 'c', 'm', 'y', 'k', 'aqua', 'blueviolet',
+              'chartreuse', 'coral', 'crimson', 'darkblue',
+              'darkslateblue', 'firebrick', 'forestgreen',
+              'indigo', 'maroon', 'mediumblue', 'navy',
+              'orange', 'orangered', 'purple', 'royalblue',
+              'seagreen', 'slateblue', 'teal', 'tomato']
 
-        def printAll(self):
-            return "\n%s -> %s\nbaseline for %s: \n   %s\nmeasures : \n   %s\n" % (self.host.name,
-                                                                                   self.target.name,
-                                                                                   self.method,
-                                                                                   "None",
-                                                                                   "\n   ".join([m.printAll() for m in self.measures]))
+    @classmethod
+    def getColor(cls, item = None):
+        """Get a color for item
+        returns random color if item is none
+        :param item: hash item to get color
+        """
+        if item is None:
+            return cls.colors[random.randint(0, len(cls.colors) - 1)]
+        return cls.colors[hash(item) % len(cls.colors)]
 
 
-# class Plotter(object):
-#     pass
-#
-#
-# if __name__ == "__main__":
-#     import json
-#
-#     class HStats(object):
-#         def __init__(self, method, host, target, baseline, measures):
-#             self.host = host
-#             self.target = target
-#             self.baseline = baseline
-#             self.measures = measures
-#             self.method = method
-#
-#         def subtrackBaseline(self, ping):
-#             return DelayStats(ping.timestamp,
-#                               ping.step,
-#                               ping.sent,
-#                               ping.received,
-#                               ping.rttmin - self.baseline.rttmin,
-#                               ping.rttavg - self.baseline.rttavg,
-#                               ping.rttmax - self.baseline.rttmax,
-#                               ping.rttdev)
-#
-#         def getPair(self):
-#             return self.host, self.target
-#
-#         def printAll(self):
-#             return "\n%s -> %s\nbaseline for %s: \n   %s\nmeasures : \n   %s\n" % (self.host,
-#                                                                                    self.target,
-#                                                                                    self.method,
-#                                                                                    self.baseline.printAll(),
-#                                                                                    "\n   ".join([m.printAll() for m in self.measures]))
-#
-#
-#     ms = json.load(open('checks/s/results.json', 'r'))
-#     methods = {}
-#     for name, method_data in ms.iteritems():
-#         methods[name] = {}
-#         methods[name]['pairs'] = []
-#         methods[name]['real_steps'] = method_data['real_steps']
-#         for pairdata in method_data['pairs']:
-#             s = HStats(name, pairdata['host'], pairdata['target'], DelayStats(**pairdata['baseline']),
-#                        [DelayStats(**m) for m in pairdata['measures']])
-#             methods[name]['pairs'].append(s)
-#     print("Loading done, making results")
-#     Delay.makeResults(methods)
+if __name__ == "__main__":
+    print("Making results from check/s/delay.json and check/s/bw.json")
+    Delay.makeResults(Delay.loadResults('checks/s/delay.json'), saveResults = False)
+    Bandwidth.makeResults(Bandwidth.loadResults('checks/s/bw.json'), saveResults = False)
