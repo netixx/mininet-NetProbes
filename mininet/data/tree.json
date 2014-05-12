@@ -142,5 +142,37 @@
 		{
 			"name" : "s6"
 		}
+	],
+	"checks" : [
+	    {
+	        "name" : "delay",
+	        "variations" : {
+	            "bw" : {
+	                "targets" : {
+	                    "l11" : [0, 10, 50, 100, 500],
+                    },
+                    "options" : {
+                        "sample_number" : 50
+                        }
+                }
+	        },
+	        "affected_check" : [["h1", "h7"], ["h2", "h6"]],
+            "unaffected_check" : [["h1", "h2"]]
+	    },
+	    {
+	        "name" : "bw",
+	        "variations" : {
+	            "bw" : {
+	                "targets" : {
+	                    "l11" : [100, 10, 1, 0.1],
+                    },
+                    "options" : {
+                        "sample_number" : 20
+                        }
+                }
+	        },
+	        "affected_check" : [["h1", "h7"], ["h2", "h6"]],
+            "unaffected_check" : [["h1", "h2"]]
+	    }
 	]
 }

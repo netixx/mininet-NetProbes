@@ -110,8 +110,30 @@ class TopologyLoader(object):
         self.loadChecks()
 
     def loadChecks(self):
-        #TODO: implement
-        pass
+        checks = []
+        for check in self.checks:
+            # events.replaceParams(event, self.cliParams)
+            checkParams = {'name': check['name'],
+                           'affected_check': check['affected_check'],
+                           'unaffected_check': check['unaffected_check']}
+
+            #set checker class to use
+            if check['variations'].has_key('delay'):
+                kw = 'delay'
+            elif check['variations'].has_key('bw'):
+                kw = 'bw'
+            checkParams['checker'] = kw
+            if check['variations'][kw].has_key('options'):
+                checkParams['options'] = check['variations'][kw]['options']
+            else:
+                checkParams['options'] = None
+            checkParams['targets'] = dict(check['variations'][kw]['targets'])
+            checks.append(checkParams)
+        if len(checks) > 0:
+            global netchecks
+            netchecks = checks
+            # self.setOptions('netchecks', checks)
+
 
     def registerNode(self, name, node):
         self.nodes[name] = node
@@ -311,7 +333,8 @@ def runTopo(topoFile, simParams, hostOptions, checkLevel):
 def check(net, level):
     if level > 0:
         import check
-        check.check(net, level)
+
+        check.check(net, level, netchecks = netchecks)
 
 
 def startXterm(net):
@@ -360,6 +383,7 @@ def makeTerm(node, title = 'Node', term = 'xterm', display = None, cmd = ''):
 
 monitor_file = ""
 binDir = None
+netchecks = None
 if __name__ == '__main__':
     lg.setLogLevel('info')
 
@@ -441,6 +465,7 @@ if __name__ == '__main__':
     events.start_time = int(args.start_time)
     # monitorUsage = args.monitorUsage
     import vars
+
     vars.testBinPath = args.bin_dir
     hOpts = {'commandOpts': "-id {name}"}
     if args.monitor_file:
