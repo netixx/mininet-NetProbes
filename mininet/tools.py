@@ -1,8 +1,8 @@
-'''
+"""
 Created on 3 avr. 2014
 
 @author: francois
-'''
+"""
 
 from mininet.node import Node
 

@@ -26,7 +26,7 @@ import monitor
 class CustomTopo(Topo):
     """Topology builder for any specified topology in json format"""
 
-    def __init__(self, topoFilePath = None, simParams = {}, hostOptions = {}, **opts):
+    def __init__(self, topoFilePath = None, simParams = {}, hostOptions = None, **opts):
         pparams = {}
         # record parameters from the cli
         for param in simParams:
@@ -39,7 +39,7 @@ class CustomTopo(Topo):
         self.netOptions = {"host": Host}
         reader = TopologyLoader(topoObj = self, topoFile = topoFilePath, cliParams = pparams)
         reader.loadTopoFromFile()
-        self.defaultHostOptions = hostOptions
+        self.defaultHostOptions = hostOptions if hostOptions is not None else {}
 
     def getDefaultHostParams(self):
         return self.defaultHostOptions.copy()
@@ -72,6 +72,7 @@ class TopologyLoader(object):
         self.routers = []
         self.switches = []
         self.checks = []
+        self.links = []
 
     def setOption(self, option, value):
         self.container.setNetOption(option, value)
@@ -150,7 +151,7 @@ class TopologyLoader(object):
 
     def loadRouters(self):
         if len(self.routers) > 0:
-            self.setOptions('router', RemoteController)
+            self.setOption('router', RemoteController)
         for router in self.routers:
             #load router
             pass
@@ -161,7 +162,7 @@ class TopologyLoader(object):
             if host.has_key("options"):
                 opts = host["options"]
                 if opts.has_key("cpu"):
-                    self.setOptions("host", CPULimitedHost)
+                    self.setOption("host", CPULimitedHost)
                 o = self.container.addHost(name, **host["options"])
             else:
                 o = self.container.addHost(name)
@@ -186,7 +187,7 @@ class TopologyLoader(object):
                 self.addLink(hosts[0], hosts[1])
 
 
-    def addLink(self, host1, host2, options = {}):
+    def addLink(self, host1, host2, options = None):
         host1 = str(host1)
         host2 = str(host2)
         port1 = None
@@ -200,6 +201,7 @@ class TopologyLoader(object):
         if p[1] == ':':
             port2 = p[2]
             host2 = p[0]
+        options = {} is options is None
         return self.container.addLink(self.nodes[host1], self.nodes[host2], port1 = port1, port2 = port2, **options)
 
     def loadEvents(self):

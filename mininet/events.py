@@ -83,10 +83,10 @@ def replaceParams(event, params):
 
 
 class NetEvent(object):
-    def __init__(self, target = None, repeat = None, duration = None, variations = {}, nrepeat = None):
+    def __init__(self, target = None, repeat = None, duration = None, variations = None, nrepeat = None):
         self.target = target
         self.repeat = repeat
-        self.variations = variations
+        self.variations = variations if variations is not None else {}
         self.duration = duration
         self.nrepeat = nrepeat
         self.timerReset = None

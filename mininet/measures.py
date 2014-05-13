@@ -227,9 +227,10 @@ class Traceroute(object):
         return times
 
     class HopResult(DelayStats):
-        def __init__(self, hopnum, address = "", times = []):
+        def __init__(self, hopnum, address = "", times = None):
             self.address = address
             self.hopnum = hopnum
+            if times is None: times = []
             sent = len(times) if len(times) > 0 else -1.0
             rtimes = filter(None, times)
             received = len(rtimes) if len(rtimes) > 0 else -1.0
@@ -359,14 +360,6 @@ class IPerf(object):
     _UDP_SRV_TPL = r',(?P<jitter>\d+\.\d+),(?P<errors>\d+),(?P<datagrams>\d+),(?P<loss>\d+\.\d+),(?P<outoforder>\d+)?'
 
 
-    @classmethod
-    def loss(cls, nodes, npackets = 100, **options):
-        options['proto'] = cls.P_UDP
-        options['udpBw'] = '%sK' % npackets
-        return cls.iperf(nodes, **options)
-
-
-    @classmethod
     def bw(cls, nodes, binDir = None, **options):
         """Run iperf between two hosts.
         param nodes: tuple of nodes to measure the bandwidth between

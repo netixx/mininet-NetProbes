@@ -134,7 +134,7 @@ def rawCmd(node, *args):
 
 
 def tc(interface, cmd, tc = 'tc'):
-    "Execute tc command for our interface"
+    """Execute tc command for our interface"""
     c = cmd % (tc, interface)  # Add in tc command and our name
     #     debug(" *** executing command: %s\n" % c)
     return rawCmd(interface.node, c)
