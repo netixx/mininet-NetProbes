@@ -15,27 +15,30 @@ from measures import Traceroute, Ping, DelayStats, IPerf, Spruce, IGI, Assolo, A
 import vars
 
 
-def check(net, level, netchecks = []):
+def check(net, level, netchecks = None):
     """Check virtual network
     :param net : the network to test
     :param level : level of check, the higher the thorougher
+    :param netchecks : check to perform
     """
     if level >= 1:
         net.pingAll()
     if level >= 2:
-        for check in netchecks:
-            checker = check.pop('checker')
-            if checker == 'delay':
-                checkDelay(net, check)
-            elif checker == 'bw':
-                checkBw(net, check)
-            else:
-                error("Unknown checker provided\n")
+        if netchecks is not None:
+            for ck in netchecks:
+                checker = ck.pop('checker')
+                if checker == 'delay':
+                    checkDelay(net, ck)
+                elif checker == 'bw':
+                    checkBw(net, ck)
+                else:
+                    error("Unknown checker provided\n")
 
 
 def checkDelay(net, checkParams):
     """Check delays on net
     :param net : net to check
+    :param checkParams: parameters for check
     """
     info("Checking delays consistency.\n")
     try:
@@ -48,6 +51,7 @@ def checkDelay(net, checkParams):
 def checkBw(net, checkParams):
     """Check Bandwidth on net
     :param net : net to check
+    :param checkParams: parameter for check
     """
     info("Checking bandwidth consistency.\n")
     try:
@@ -78,7 +82,10 @@ class Bandwidth(object):
         #number of packets per sample/baseline
         self.PACKET_NUMBER = 4
         #bitrate in Mbps
-        self.STEPS = targets
+        self.STEPS = {}
+        for target, tops in targets.iteritems():
+            self.STEPS[target] = tops['steps']
+
         self.steps_len = min([len(steps) for steps in self.STEPS.values()])
         self.options = self.DEFAULT_OPTIONS.copy()
         self.options.update(options)
@@ -120,6 +127,7 @@ class Bandwidth(object):
 
 
     def check(self):
+        """Check the net"""
         info("Starting check %s\n" % self.checkName)
         # get a baseline
         pairs = self._strToNodes(self.PAIRS)
@@ -134,13 +142,15 @@ class Bandwidth(object):
                                 ["%sMbps" % step for step in steps]))
              for link, steps in self.STEPS.iteritems()]))
         info("\n")
-        info("&&& Running tests\n")
-        for name, method in self.methods.iteritems():
-            info("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&\n")
-            info("&& Running test for method %s\n" % name)
-            self._runSteps(method)
-        info("&&& All tests are done\n")
-        self.makeResults(self.methods, checkName = self.checkName, saveResults = True)
+        try:
+            info("&&& Running tests\n")
+            for name, method in self.methods.iteritems():
+                info("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&\n")
+                info("&& Running test for method %s\n" % name)
+                self._runSteps(method)
+            info("&&& All tests are done\n")
+        finally:
+            self.makeResults(self.methods, checkName = self.checkName, saveResults = True)
 
     def _runSteps(self, method):
         self.time_start = time.time()
@@ -162,11 +172,11 @@ class Bandwidth(object):
             self._makeEvent(steps[stepNum], target)
             step = min(steps[stepNum], step) if step > 0 else steps[stepNum]
         time.sleep(self._START_WAIT)
-        self.__getSamples(step, method['pairs'], method['method'], method['options'])
+        self.__getSamples(step, method['pairs'], method['method'], **method['options'])
         time.sleep(self._STOP_WAIT)
 
 
-    def __getSamples(self, step, pairs, method, options = {}):
+    def __getSamples(self, step, pairs, method, **options):
         info("& Getting samples : ")
         options['bw'] = "%sM" % step
         for i in range(1, self.options[self.SAMPLE_NUMBER] + 1):
@@ -185,19 +195,23 @@ class Bandwidth(object):
     def _getBaselines(self, methods):
         info("&& Getting baselines\n")
         for name, method in methods.iteritems():
-            info("& Getting baseline for method %s\n" % name)
-            self.__setBaseline(method['pairs'], method['method'], method['options'])
+            info("& Getting baseline for method %s : " % name)
+            self.__setBaseline(method['pairs'], method['method'], **method['options'])
         info("&& Baselines done\n")
 
-    def __setBaseline(self, pairs, method, options = {}):
+    @staticmethod
+    def __setBaseline(pairs, method, **options):
         for pair in pairs:
             pair.baseline = method((pair.host, pair.target), **options)
+            info(' %s : %s' % ("(%s,%s)" % pair.getPair(), "{:.2f}".format(pair.baseline.bw / (1000.0 ** 2))))
+        info("\n")
 
 
     def _makeEvent(self, delay, target):
         events.runEvent(self.__getEvent(delay, target), self.net)
 
-    def __getEvent(cls, bw, target = 'l11'):
+    @staticmethod
+    def __getEvent(bw, target = 'l11'):
         return events.NetEvent(target = target,
                                variations = {'bw': bw})
 
@@ -211,19 +225,22 @@ class Bandwidth(object):
     class HostStats(object):
         """Storage for results"""
 
-        def __init__(self, host, target, method = '', baseline = None, measures = []):
+        def __init__(self, host, target, method = '', baseline = None, measures = None):
             self.host = host
             self.target = target
-            self.measures = measures
+            self.measures = measures if measures is not None else []
             self.baseline = baseline
             self.method = method
 
-        def subtrackBaseline(self, ping):
-            return DelayStats(ping.timestamp,
-                              ping.step,
-                              ping.sent,
-                              ping.received,
-                              ping.bw - self.baseline.bw)
+        def subtrackBaseline(self, sample):
+            """Remove baseline from sample
+            :param sample : sample to correct
+            """
+            return DelayStats(sample.timestamp,
+                              sample.step,
+                              sample.sent,
+                              sample.received,
+                              sample.bw - self.baseline.bw)
 
         def getPair(self):
             return self.host.name, self.target.name
@@ -245,9 +262,10 @@ class Bandwidth(object):
                     'measures': [m.toDict() for m in self.measures]}
 
     @classmethod
-    def saveResults(cls, methods):
+    def saveResults(cls, methods, checkName):
         """Save results to json file
-        :param methods: results to save"""
+        :param methods: results to save
+        :param checkName : name of the check to save"""
         info('Saving bandwidth results\n')
         import json
 
@@ -258,7 +276,7 @@ class Bandwidth(object):
             results[name]['real_steps'] = method['real_steps']
             for pair in method['pairs']:
                 results[name]['pairs'].append(pair.toDict())
-        fn = "checks/bw_%s.json" % datetime.datetime.now()
+        fn = "checks/%s_%s.json" % (checkName, datetime.datetime.now())
         json.dump(results, open(fn, 'w'))
         return fn
 
@@ -291,16 +309,25 @@ class Bandwidth(object):
     def makeResults(cls, methods, checkName = 'bw', saveResults = True):
         """Make result to graphics
         :param methods : results to process
+        :param checkName: name of the current check being processed
         :param saveResults : save results to json file ?"""
         if saveResults:
             try:
-                fn = cls.saveResults(methods)
+                fn = cls.saveResults(methods, checkName)
                 info("Saved bandwidth results to file %s\n" % fn)
             except Exception as e:
                 error("Could not save bandwidth results : %s\n" % e)
 
         import numpy as np
         from matplotlib.backends.backend_pdf import PdfPages
+
+        try:
+            for name, method in methods.iteritems():
+                info("Result of measures for method %s:\n" % name)
+                for pair in method['pairs']:
+                    info(pair.printAll())
+        except Exception as e:
+            error("Could not print results %s\n" % e)
 
         nmethods = len(methods)
         line = 1
@@ -314,8 +341,6 @@ class Bandwidth(object):
             pdf = PdfPages(fn)
             for name, method in methods.iteritems():
                 info("Result of measures for method %s:\n" % name)
-                for pair in method['pairs']:
-                    info(pair.printAll())
                 avgs = {}
                 ts = {}
                 steps = {'total': None}
@@ -372,10 +397,11 @@ class Delay(object):
     _FUDGE_FACTOR = 0.8
 
     SAMPLE_NUMBER = 'sample_number'
+    PACKET_NUMBER = 'packet_number'
     #deadline after which the command terminates
     SAMPLE_DEADLINE = 5
 
-    BL_PACKET_NUMBER = 30
+    BL_PACKET_NUMBER = 40
     #rate at which to send the packets
     SEND_SPEED = 0.3
     # consider packet lost if it arrives after WAIT_FACTOR * step * 2
@@ -389,7 +415,9 @@ class Delay(object):
     _SAMPLE_WAIT = 0.01
 
     DEFAULT_OPTIONS = {
-        'sample_number': 50
+        'sample_number': 50,
+        #number of packets per sample
+        'packet_number': 4
     }
 
     def __init__(self, net = None, affected_check = None, unaffected_check = None,
@@ -398,43 +426,46 @@ class Delay(object):
         self.net = net
         self.checkName = name
         self.PAIRS = map(tuple, affected_check)
-        #number of packets per sample/baseline
-        self.PACKET_NUMBER = 4
         #delays (in ms) to test
-        self.STEPS = targets
+        self.STEPS = {}
+        for target, tops in targets.iteritems():
+            self.STEPS[target] = tops['steps']
         self.steps_len = min([len(steps) for steps in self.STEPS.values()])
         self.options = self.DEFAULT_OPTIONS.copy()
         self.options.update(options)
         self.methods = {
             'udp-trrt': {'method': Traceroute.ping,
-                         'options': {'npackets': self.PACKET_NUMBER,
-                                     'sendwait': self.UDP_SEND_WAIT},
+                         'options': {'npackets': self.options[self.PACKET_NUMBER],
+                                     'sendwait': self.UDP_SEND_WAIT,
+                                     'binDir': vars.testBinPath},
                          'blOptions': {'npackets': self.BL_PACKET_NUMBER}
             },
             'udplite-trrt': {'method': Traceroute.ping,
-                             'options': {'npackets': self.PACKET_NUMBER},
-                             'blOptions': {'npackets': self.BL_PACKET_NUMBER}
+                             'options': {'npackets': self.options[self.PACKET_NUMBER],
+                                         'binDir': vars.testBinPath},
+                             'blOptions': {'npackets': self.BL_PACKET_NUMBER, }
             },
             'icmp-trrt': {'method': Traceroute.ping,
-                          'options': {'npackets': self.PACKET_NUMBER,
+                          'options': {'npackets': self.options[self.PACKET_NUMBER],
                                       'proto': Traceroute.P_ICMP,
-                                      'binDir': os.path.join(vars.testBinPath)},
+                                      'binDir': vars.testBinPath},
                           'blOptions': {'npackets': self.BL_PACKET_NUMBER}
             },
             'icmp-ping': {'method': Ping.ping,
                           'options': {'deadline': self.SAMPLE_DEADLINE,
-                                      'npackets': self.PACKET_NUMBER,
+                                      'npackets': self.options[self.PACKET_NUMBER],
                                       'sendspeed': self.SEND_SPEED},
                           'blOptions': {'npackets': self.BL_PACKET_NUMBER}
             },
             'tcp-trrt': {'method': Traceroute.ping,
-                         'options': {'npackets': self.PACKET_NUMBER,
-                                     'proto': Traceroute.P_TCP},
+                         'options': {'npackets': self.options[self.PACKET_NUMBER],
+                                     'proto': Traceroute.P_TCP,
+                                     'binDir': vars.testBinPath},
                          'blOptions': {'npackets': self.BL_PACKET_NUMBER}
             }
         }
         for val in self.methods.values():
-            opt = val['options']
+            opt = val['options'].copy()
             opt.update(val['blOptions'])
             val['blOptions'] = opt
         self.time_start = None
@@ -444,6 +475,7 @@ class Delay(object):
 
 
     def check(self):
+        """Check the network"""
         info('&& Starting check %s\n' % self.checkName)
         # get a baseline
         pairs = self._strToNodes(self.PAIRS)
@@ -458,13 +490,16 @@ class Delay(object):
                                 ["%sms" % step for step in steps]))
              for link, steps in self.STEPS.iteritems()]))
         info("\n")
-        info("&&& Running tests\n")
-        for name, method in self.methods.iteritems():
-            info("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&\n")
-            info("&& Running test for method %s\n" % name)
-            self._runSteps(method)
-        info("&&& All tests are done\n")
-        self.makeResults(self.methods, checkName = self.checkName, saveResults = True)
+        try:
+            info("&&& Running tests\n")
+            for name, method in self.methods.iteritems():
+                info("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&\n")
+                info("&& Running test for method %s\n" % name)
+                self._runSteps(method)
+            info("&&& All tests are done\n")
+        finally:
+            info("&&& Making results\n")
+            self.makeResults(self.methods, checkName = self.checkName, saveResults = True)
 
 
     def _runSteps(self, method):
@@ -491,11 +526,11 @@ class Delay(object):
             step += steps[stepNum]
         time.sleep(self._START_WAIT)
         method['options']['wait'] = self.getWaitTime(step)
-        self._getSamples(step, method['pairs'], method['method'], method['options'])
+        self._getSamples(step, method['pairs'], method['method'], **method['options'])
         time.sleep(self._STOP_WAIT)
 
 
-    def _getSamples(self, step, pairs, method, options = {}):
+    def _getSamples(self, step, pairs, method, **options):
         info("& Getting samples : ")
         for i in range(1, self.options[self.SAMPLE_NUMBER] + 1):
             info("%s " % i)
@@ -513,11 +548,12 @@ class Delay(object):
         info("&& Getting baselines\n")
         for name, method in methods.iteritems():
             info("& Getting baseline for method %s :" % name)
-            self.__setBaseline(method['pairs'], method['method'], method['blOptions'])
+            self.__setBaseline(method['pairs'], method['method'], **method['blOptions'])
             info("\n")
         info("&& Baselines done\n")
 
-    def __setBaseline(self, pairs, method, options = {}):
+    @staticmethod
+    def __setBaseline(pairs, method, **options):
         for pair in pairs:
             pair.baseline = method((pair.host, pair.target), **options)
             info(' %s : %s' % ("(%s,%s)" % pair.getPair(), "{:.2f}".format(pair.baseline.rttavg)))
@@ -539,10 +575,13 @@ class Delay(object):
     class HostStats(object):
         """Storage for delay results"""
 
-        def __init__(self, host, target, method = '', baseline = None, measures = []):
+        def __init__(self, host, target, method = '', baseline = None, measures = None):
             self.host = host
             self.target = target
-            self.measures = measures
+            if measures is not None:
+                self.measures = measures
+            else:
+                self.measures = []
             self.baseline = baseline
             self.method = method
 
@@ -578,7 +617,8 @@ class Delay(object):
     @classmethod
     def saveResults(cls, methods, checkName = 'delay'):
         """Save results to json file
-        :param methods: results to save"""
+        :param methods: results to save
+        :param checkName : name of the check to save"""
         info('Saving delay results\n')
         import json
 
@@ -623,6 +663,7 @@ class Delay(object):
     def makeResults(cls, methods, checkName = 'delay', saveResults = True):
         """Process results and produce graphics
         :param methods: results to save
+        :param checkName: name of the check
         :param saveResults: save results to file ?"""
         if saveResults:
             try:
@@ -630,6 +671,15 @@ class Delay(object):
                 info("Saved delay results to file %s\n" % fn)
             except Exception as e:
                 error("Could not save delay results : %s\n" % e)
+
+        try:
+            for name, method in methods.iteritems():
+                info("Result of measures for method %s : " % name)
+                for pair in method['pairs']:
+                    info(pair.printAll())
+                info("\n")
+        except Exception as e:
+            error("Could not print results : %s.\n" % e)
 
         import numpy as np
         from matplotlib.backends.backend_pdf import PdfPages
@@ -648,9 +698,6 @@ class Delay(object):
             fn = 'checks/%s.pdf' % checkName
             pdf = PdfPages(fn)
             for name, method in methods.iteritems():
-                info("Result of measures for method %s:\n" % name)
-                for pair in method['pairs']:
-                    info(pair.printAll())
                 avgs = {}
                 rdiffs = {}
                 adiffs = {}

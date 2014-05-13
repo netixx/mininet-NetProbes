@@ -264,7 +264,7 @@ class Ping(object):
     def ping(cls, nodes, binDir = None, **options):
         """Perform ping from node to target"""
         node, target = nodes
-        out, err, exitcode = node.pexec(cls._getPingCmd(target = target.IP(), **options))
+        out, err, exitcode = node.pexec(cls._getPingCmd(target = target.IP(), binDir = binDir, **options))
         # if exitcode != 0:
         # if isSweep:
         #     return cls._parseSweepPing(out.decode())
@@ -273,7 +273,7 @@ class Ping(object):
     @classmethod
     def loss(cls, nodes, binDir = None, **options):
         node, target = nodes
-        out, err, exitcode = node.pexec(cls._getPingCmd(target = target.IP(), **options))
+        out, err, exitcode = node.pexec(cls._getPingCmd(target = target.IP(), binDir = binDir**options))
         return cls._parsePing(out.decode())
 
 
