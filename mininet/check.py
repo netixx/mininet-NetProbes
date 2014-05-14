@@ -345,11 +345,11 @@ class Bandwidth(object):
                 ts = {}
                 steps = {'total': None}
                 for target, tsteps in method['real_steps'].iteritems():
-                    st = zip(*map(lambda x: (2 * x[0], x[1]), tsteps))
+                    st = zip(*tsteps)
                     step_time = np.array((0,) + st[1])
                     step_values = np.array((0,) + st[0])
                     steps[target] = (step_time, step_values)
-                    steps['total'] = (step_time, np.add(steps['total'][1], step_values)) if steps['total'] is not None else (step_time, step_values)
+                    steps['total'] = (step_time, np.minimum(steps['total'][1], step_values)) if steps['total'] is not None else (step_time, step_values)
 
                 for pair in method['pairs']:
                     avg = map(lambda measure: measure.bw / (1000 ** 2), pair.measures)
