@@ -10,6 +10,7 @@ import mininet
 from mininet.link import TCIntf
 
 import monitor
+from events import EventsManager
 
 class CLI(mininet.cli.CLI):
 
@@ -70,6 +71,13 @@ class CLI(mininet.cli.CLI):
         # for host in hosts:
         #     func(monitor.getMonitor(host))
 
+    def do_events(self, line):
+        parser = argparse.ArgumentParser()
+        subp = parser.add_subparsers(dest = 'command')
+        subp1 = subp.add_parser('start')
+        args = parser.parse_args(shlex.split(line))
+        if args.command == 'start':
+            EventsManager.startTimers()
 
 
 class _Host(object):
