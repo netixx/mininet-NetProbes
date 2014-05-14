@@ -17,9 +17,9 @@ import mininet.log as lg
 from custom_mininet import TCLink, CPULimitedHost, Host, CLI
 from mininet.node import RemoteController
 import tools
-import events
 from mininet.term import tunnelX11
-from events import NetEvent
+from events import NetEvent, EventsManager
+import events
 import monitor
 
 
@@ -201,7 +201,7 @@ class TopologyLoader(object):
         if p[1] == ':':
             port2 = p[2]
             host2 = p[0]
-        options = {} is options is None
+        if options is None : options = {}
         return self.container.addLink(self.nodes[host1], self.nodes[host2], port1 = port1, port2 = port2, **options)
 
     def loadEvents(self):
@@ -228,7 +228,7 @@ class TopologyLoader(object):
             if event.has_key('nrepeat'):
                 e.nrepeat = int(event['nrepeat'])
             # register event for scheduling
-            events.sheduleEvent(e)
+            EventsManager.sheduleEvent(e)
 
 
 def hasTCLinkProperties(opts):
@@ -296,8 +296,10 @@ def runTopo(topoFile, simParams, hostOptions, checkLevel):
     if checkLevel > 1:
         topo.setNetOption('link', TCLink)
     net = CustomMininet(topo = topo, **topo.getNetOptions())
+    netprobes = []
     try:
         start(net)
+        EventsManager.startClock(net)
         for host in net.hosts:
             if host.monitor_rules is not None:
                 monitor.start(host, host.monitor_rules)
@@ -306,11 +308,11 @@ def runTopo(topoFile, simParams, hostOptions, checkLevel):
                 if host.isXHost:
                     makeTerm(host, cmd = host.command)
                 else:
-                    host.pexec("bash %s &" % host.command)
+                    import shlex
+                    netprobes.append(host.popen(shlex.split("bash -c '%s' &" % host.command)))
             else:
                 if host.isXHost:
                     makeTerm(host)
-        events.startClock(net)
         check(net, checkLevel)
         CLI(net)
     finally:
@@ -327,6 +329,9 @@ def runTopo(topoFile, simParams, hostOptions, checkLevel):
                 # subprocess.call(["/bin/kill", "-s INT", str(host.lastPid)])
                 host.cmd('kill -s INT %')
                 # host.sendInt()
+        for probe in netprobes:
+            import signal
+            probe.send_signal(signal.SIGINT)
         if mon:
             monitor.writeSummary(monitor_file, counter)
         stop(net)
@@ -355,9 +360,9 @@ def start(net):
 
 def stop(net):
     net.stop()
-    if events.t_start is not None:
-        events.t_start.cancel()
-    events.stopClock()
+    if EventsManager.t_start is not None:
+        EventsManager.t_start.cancel()
+    EventsManager.stopClock()
 
 
 def makeTerm(node, title = 'Node', term = 'xterm', display = None, cmd = ''):
@@ -411,9 +416,9 @@ if __name__ == '__main__':
                         default = [],
                         help = 'Pass variables to the emulation')
 
-    parser.add_argument("--start",
+    parser.add_argument("--auto-start-events",
                         dest = 'start_time',
-                        default = 5,
+                        default = None,
                         help = 'Time to pass before network is modified')
 
     #network construction options
@@ -464,7 +469,8 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     topoFile = os.path.join(DIR, "data", args.tfile + ".json")
-    events.start_time = int(args.start_time)
+    if args.start_time is not None:
+        EventsManager.start_time = int(args.start_time)
     # monitorUsage = args.monitorUsage
     import vars
 
