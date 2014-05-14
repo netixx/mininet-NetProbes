@@ -359,7 +359,7 @@ class IPerf(object):
     _SRV_TPL = r'(?P<timestamp>[^,]+),,,,,(?P<id>[^,]+),(?P<interval>[^,]+),(?P<transfer>\d+),(?P<bw>\d+)(?P<udp>.*)?'
     _UDP_SRV_TPL = r',(?P<jitter>\d+\.\d+),(?P<errors>\d+),(?P<datagrams>\d+),(?P<loss>\d+\.\d+),(?P<outoforder>\d+)?'
 
-
+    @classmethod
     def bw(cls, nodes, binDir = None, **options):
         """Run iperf between two hosts.
         param nodes: tuple of nodes to measure the bandwidth between

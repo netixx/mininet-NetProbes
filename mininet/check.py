@@ -437,12 +437,14 @@ class Delay(object):
             'udp-trrt': {'method': Traceroute.ping,
                          'options': {'npackets': self.options[self.PACKET_NUMBER],
                                      'sendwait': self.UDP_SEND_WAIT,
-                                     'binDir': vars.testBinPath},
+                                     'binDir': vars.testBinPath,
+                                     'proto': Traceroute.P_UDP},
                          'blOptions': {'npackets': self.BL_PACKET_NUMBER}
             },
             'udplite-trrt': {'method': Traceroute.ping,
                              'options': {'npackets': self.options[self.PACKET_NUMBER],
-                                         'binDir': vars.testBinPath},
+                                         'binDir': vars.testBinPath,
+                                         'proto': Traceroute.P_UDPLITE},
                              'blOptions': {'npackets': self.BL_PACKET_NUMBER, }
             },
             'icmp-trrt': {'method': Traceroute.ping,
@@ -814,7 +816,7 @@ class Delay(object):
                 Graph.subplot(1, ncols, nstep)
                 Graph.boxplot([m_datas[met] for met in mets], sym = '^')
                 Graph.axhline(2 * step, color = 'r')
-                Graph.decorate(g_xtickslab = m_datas.keys(), g_grid = True,
+                Graph.decorate(g_xtickslab = mets, g_grid = True,
                                g_xlabel = 'Measurement method', g_ylabel = 'Measured delays - baseline (ms)',
                                g_title = 'Measures for step 2x%sms' % step)
                 nstep += 1
@@ -897,5 +899,5 @@ class Graph(object):
 
 if __name__ == "__main__":
     print("Making results from check/s/delay.json and check/s/bw.json")
-    Delay.makeResults(Delay.loadResults('checks/s/delay.json'), saveResults = False)
-    Bandwidth.makeResults(Bandwidth.loadResults('checks/s/bw.json'), saveResults = False)
+    Delay.makeResults(Delay.loadResults('checks/s/delay.json'), checkName = 'sdelay', saveResults = False)
+    Bandwidth.makeResults(Bandwidth.loadResults('checks/s/bw.json'), checkName = 'sbw', saveResults = False)
