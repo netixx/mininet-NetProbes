@@ -152,7 +152,7 @@ class Traceroute(object):
     def ping(cls, nodes, binDir = None, **options):
         """Use traceroute as ping from node to target"""
         node, target = nodes
-        out, err, exitcode = node.pexec(cls._getTracerouteCmd(binDir = binDir, target = target.IP(), firstTTL = 60, maxTTL = 60, **options))
+        out, err, exitcode = node.pexec(cls._getTracerouteCmd(binDir = binDir, target = target.IP(), firstTTL = 255, maxTTL = 255, **options))
         hops = cls._parseTrace(out.decode())
         return cls.sumTraceDelay(hops)
 
@@ -589,9 +589,13 @@ class Spruce(object):
         # nbsr = NonBlockingStreamReader(rcv.stdout)
         # output = nbsr.readline(0.1)
 
-        out, err, exitcode = sender.pexec(shlex.split(cls._SND_CMD.format(**opts)))
+        out, err, exitcode = sender.pexec(cls._getSpruceCmd(**opts))
         rcv.send_signal(signal.SIGINT)
         return cls._parseSpruce(err)
+
+    @classmethod
+    def _getSpruceCmd(cls, **opts):
+        return shlex.split(cls._SND_CMD.format(**opts))
 
     @classmethod
     def _parseSpruce(cls, out):
@@ -849,8 +853,8 @@ class Yaz(object):
     !!! Does NOT work in mininet as of yet for unknown reasons..."""
     _EXEC = 'yaz'
 
-    _SND_CMD = '{exec} -v -S {receiverIp} -p {controlPort} -P {port} -l {minPacketSize} -c {initPacketSize} -i {initPacketSpacing} -n {' \
-               'streamLength} -m {nStreams} -r {resolution} -s {streamSpacing}'
+    _SND_CMD = '{exec} -v -S {receiverIp} -p {controlPort} -P {port}'# -l {minPacketSize} -c {initPacketSize} -i {initPacketSpacing} -n {' \
+               # 'streamLength} -m {nStreams} -r {resolution}'# -s {streamSpacing}'
     _RCV_CMD = '{exec} -v -R -p {controlPort} -P {port}'
 
     DEFAULT_OPTIONS = {
@@ -860,7 +864,7 @@ class Yaz(object):
         'streamLength': 50,
         'nStreams': 1,
         'resolution': 500.0,
-        'streamSpacing': 50,
+        # 'streamSpacing': 50,
         'controlPort': 13979,
         'port': 13989,
         'duration': 10
@@ -893,6 +897,7 @@ class Yaz(object):
         snd.send_signal(signal.SIGINT)
         out, err = snd.communicate()
         rcv.send_signal(signal.SIGINT)
+        print rcv.communicate()
         return cls._parseYaz(out, err)
 
     @classmethod
