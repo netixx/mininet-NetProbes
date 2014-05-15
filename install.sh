@@ -14,6 +14,8 @@ BIN_DIR_NAME="bin"
 LIBS_DIR="$DIR/$LIBS_DIR_NAME"
 BIN_DIR="$DIR/$BIN_DIR_NAME"
 
+mkdir "$BIN_DIR"
+
 YAZ_DIR="yaz-master"
 IGI_DIR="igi-ptr-2.1"
 ASSOLO_DIR="assolo"
@@ -68,4 +70,4 @@ done
 
 cd "$DIR"
 
-
+mkdir "checks"
