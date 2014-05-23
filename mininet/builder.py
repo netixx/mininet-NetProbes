@@ -10,6 +10,9 @@ from os import getuid
 import os
 from argparse import ArgumentParser
 import re
+import time
+import shlex
+import collections
 
 from mininet.net import Mininet
 from mininet.topolib import Topo
@@ -201,7 +204,8 @@ class TopologyLoader(object):
         if p[1] == ':':
             port2 = p[2]
             host2 = p[0]
-        if options is None : options = {}
+        if options is None:
+            options = {}
         return self.container.addLink(self.nodes[host1], self.nodes[host2], port1 = port1, port2 = port2, **options)
 
     def loadEvents(self):
@@ -296,7 +300,7 @@ def runTopo(topoFile, simParams, hostOptions, checkLevel):
     if checkLevel > 1:
         topo.setNetOption('link', TCLink)
     net = CustomMininet(topo = topo, **topo.getNetOptions())
-    netprobes = []
+    netprobes = collections.OrderedDict()
     try:
         start(net)
         EventsManager.startClock(net)
@@ -308,8 +312,8 @@ def runTopo(topoFile, simParams, hostOptions, checkLevel):
                 if host.isXHost:
                     makeTerm(host, cmd = host.command)
                 else:
-                    import shlex
-                    netprobes.append(host.popen(shlex.split("bash -c '%s' &" % host.command)))
+                    netprobes[host.name] = host.popen(shlex.split("%s" % host.command))
+                    # print(netprobes[host.name].communicate())
             else:
                 if host.isXHost:
                     makeTerm(host)
@@ -323,18 +327,33 @@ def runTopo(topoFile, simParams, hostOptions, checkLevel):
                 monitor.collect(host, monitor_file, counter)
                 monitor.stop(host, host.monitor_rules)
                 mon = True
-            if host.command is not None:
+                # if host.command is not None:
+                # lg.info("Sent signal ")
                 # print("%s %s"%(host.name,host.lastPid))
                 # import subprocess
                 # subprocess.call(["/bin/kill", "-s INT", str(host.lastPid)])
-                host.cmd('kill -s INT %')
+                # host.cmd('kill -s INT %')
                 # host.sendInt()
-        for probe in netprobes:
+        for name, probe in netprobes.iteritems():
+            lg.info("Send sigint to probe %s\n" % name)
             import signal
             probe.send_signal(signal.SIGINT)
+            time.sleep(0.2)
         if mon:
             monitor.writeSummary(monitor_file, counter)
         stop(net)
+        #cleanup !
+        # time.sleep(2)
+        for name, probe in netprobes.iteritems():
+            if probe.poll() is None:
+                lg.info("Send terminate signal to %s\n" % name)
+                probe.terminate()
+                time.sleep(0.01)
+        time.sleep(1)
+        for name, probe in netprobes.iteritems():
+            if probe.poll() is None:
+                lg.info("Send kill signal to %s\n" % name)
+                probe.kill()
 
 
 def check(net, level):
