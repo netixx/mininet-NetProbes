@@ -295,6 +295,10 @@ class CustomMininet(Mininet):
 # CLI(net)
 # net.stop()
 
+def runCommand(host):
+    return host.popen(shlex.split("%s" % host.command))
+
+
 def runTopo(topoFile, simParams, hostOptions, checkLevel):
     topo = CustomTopo(topoFilePath = topoFile, simParams = simParams, hostOptions = hostOptions)
     if checkLevel > 1:
@@ -310,7 +314,20 @@ def runTopo(topoFile, simParams, hostOptions, checkLevel):
             if host.command is not None:
                 host.command = host.command.format(commandOpts = host.commandOpts, name = host.name).format(name = host.name)
                 if host.isXHost:
-                    makeTerm(host, cmd = host.command)
+                    t = makeTerm(host, cmd = host.command)
+                    if len(t) < 1:
+                        lg.error("Error while starting terminal for host %s\n" % host.name)
+                        continue
+                    if len(t) == 2:
+                        tunnel, term = t
+                    else:
+                        term = t
+                    try:
+                        if term.poll() is not None:
+                            lg.error("Terminal with command %s ended early for host %s : %s\n" % (host.command, host.name, repr(term.communicate())))
+                    except:
+                        pass
+                    netprobes[host.name] = term
                 else:
                     netprobes[host.name] = host.popen(shlex.split("%s" % host.command))
                     # print(netprobes[host.name].communicate())
@@ -319,7 +336,6 @@ def runTopo(topoFile, simParams, hostOptions, checkLevel):
                     makeTerm(host)
         check(net, checkLevel)
         CLI(net)
-    finally:
         mon = False
         counter = monitor.Counter()
         for host in net.hosts:
@@ -327,33 +343,36 @@ def runTopo(topoFile, simParams, hostOptions, checkLevel):
                 monitor.collect(host, monitor_file, counter)
                 monitor.stop(host, host.monitor_rules)
                 mon = True
-                # if host.command is not None:
-                # lg.info("Sent signal ")
-                # print("%s %s"%(host.name,host.lastPid))
-                # import subprocess
-                # subprocess.call(["/bin/kill", "-s INT", str(host.lastPid)])
-                # host.cmd('kill -s INT %')
-                # host.sendInt()
         for name, probe in netprobes.iteritems():
             lg.info("Send sigint to probe %s\n" % name)
             import signal
+
             probe.send_signal(signal.SIGINT)
-            time.sleep(0.2)
+            time.sleep(0.05)
         if mon:
             monitor.writeSummary(monitor_file, counter)
+    finally:
         stop(net)
         #cleanup !
-        # time.sleep(2)
+        lg.info("Stopping remaining processes...\n")
+        kill = 0
         for name, probe in netprobes.iteritems():
             if probe.poll() is None:
-                lg.info("Send terminate signal to %s\n" % name)
-                probe.terminate()
-                time.sleep(0.01)
-        time.sleep(1)
-        for name, probe in netprobes.iteritems():
-            if probe.poll() is None:
-                lg.info("Send kill signal to %s\n" % name)
-                probe.kill()
+                kill += 1
+        if kill > 0:
+            lg.info("Found %s process(es) to kill\n" % kill)
+            time.sleep(3)
+            for name, probe in netprobes.iteritems():
+                if probe.poll() is None:
+                    lg.info("Send terminate signal to %s\n" % name)
+                    probe.terminate()
+                    time.sleep(0.001)
+            time.sleep(3)
+            for name, probe in netprobes.iteritems():
+                if probe.poll() is None:
+                    lg.info("Send kill signal to %s\n" % name)
+                    probe.kill()
+        lg.info("Done\n")
 
 
 def check(net, level):
@@ -369,7 +388,8 @@ def startXterm(net):
 
 
 def start(net):
-    net.start()
+    # net.start()
+    #does start for us
     rootnode = tools.connectToInternet(net)
     print "Ips are as follows :"
     for host in net.hosts:
@@ -384,7 +404,7 @@ def stop(net):
     EventsManager.stopClock()
 
 
-def makeTerm(node, title = 'Node', term = 'xterm', display = None, cmd = ''):
+def makeTerm(node, title = 'Node', term = 'xterm', display = None, cmd = 'bash'):
     """Create an X11 tunnel to the node and start up a terminal.
        node: Node object
        title: base title
@@ -403,7 +423,7 @@ def makeTerm(node, title = 'Node', term = 'xterm', display = None, cmd = ''):
     display, tunnel = tunnelX11(node, display)
     if display is None:
         return []
-    term = node.popen(cmds[term] + [display, '-e', 'env TERM=ansi bash ' + cmd])
+    term = node.popen(cmds[term] + [display, '-e', 'env TERM=ansi ' + cmd])
     return [tunnel, term] if tunnel else [term]
 
 
