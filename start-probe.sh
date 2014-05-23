@@ -1,3 +1,3 @@
 #!/bin/bash
 
-$HOME/netprobes/start.sh "$@"
+exec $HOME/netprobes/start.sh "$@"

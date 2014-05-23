@@ -9,3 +9,5 @@ prog=$DIR"/mininet/builder.py"
 sudo "$py" "$prog" "$@"
 
 sudo mn --clean
+
+#sudo pkill -9 -f "$HOME"
