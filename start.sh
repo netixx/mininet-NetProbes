@@ -6,7 +6,11 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 py=$(which python)
 prog=$DIR"/mininet/builder.py"
 
-sudo "$py" "$prog" "$@"
+#elevate to root
+[ "$UID" -eq 0 ] || exec sudo "$0" "$@"
+
+ulimit -n 100000
+"$py" "$prog" "$@"
 
 #sudo mn --clean
 
