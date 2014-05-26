@@ -1,18 +1,20 @@
 #!/bin/bash
-#usage flood-flat output_file nhosts subnetlength
+USAGE="usage : flood-flat.sh nprefixes subnetlength"
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-if [[ "$3" -gt 8 ]]
+if [[ "$2" -gt 8 ]]
 then
 echo "Subnet length must be <= 8"
+echo "$USAGE"
 exit
 fi
 
-OUTPUT="$DIR/../mininet/data/$1.json"
-NHOSTS="$2"
-PREFIX_LENGTH="$3"
-NHOSTPERPREFIXES="$(expr $(( 1 << $3 )) - 2)"
+#OUTPUT="$DIR/../mininet/data/$1.json"
+NPREFIXES="$1"
+PREFIX_LENGTH="$2"
+NHOSTPERPREFIXES="$(expr $(( 1 << $PREFIX_LENGTH )) - 2)"
+NHOSTS="$(expr $NPREFIXES \* $NHOSTPERPREFIXES + 1)"
 
 hostname="h"
 linkname="l"
@@ -101,4 +103,4 @@ done
 
 out=$(getjson "$(gethosts "$hosts")" "$(getswitch "$switchname")" "$(getlinks "$links")")
 
-echo -e "$out" > $OUTPUT
+echo -e "$out"
