@@ -168,7 +168,7 @@
                     },
                     "options" : {
                         "sample_number" : 20
-                        }
+                    }
                 }
 	        },
 	        "affected_check" : [["h1", "h7"], ["h2", "h6"]],
