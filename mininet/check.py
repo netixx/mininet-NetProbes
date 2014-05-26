@@ -94,23 +94,23 @@ class Bandwidth(object):
         self.options = self.DEFAULT_OPTIONS.copy()
         self.options.update(options)
         self.methods = {
-            'iperf': {
-                'method': IPerf.bw,
-                'options': {}
-            },
-            'spruce': {
-                'method': Spruce.bw,
-                'options': {'binDir': os.path.join(vars.testBinPath, 'spruce')}
-            },
-            'igi': {
-                'method': IGI.bw,
-                'options': {'binDir': os.path.join(vars.testBinPath, 'igi')}
-            },
-            'assolo': {
-                'method': Assolo.bw,
-                'options': {'binDir': os.path.join(vars.testBinPath, 'assolo'),
-                            'duration': 10}
-            },
+            # 'iperf': {
+            #     'method': IPerf.bw,
+            #     'options': {}
+            # },
+            # 'spruce': {
+            #     'method': Spruce.bw,
+            #     'options': {'binDir': os.path.join(vars.testBinPath, 'spruce')}
+            # },
+            # 'igi': {
+            #     'method': IGI.bw,
+            #     'options': {'binDir': os.path.join(vars.testBinPath, 'igi')}
+            # },
+            # 'assolo': {
+            #     'method': Assolo.bw,
+            #     'options': {'binDir': os.path.join(vars.testBinPath, 'assolo'),
+            #                 'duration': 10}
+            # },
             'abing': {
                 'method': Abing.bw,
                 'options': {'binDir': os.path.join(vars.testBinPath, 'abing')}
@@ -1079,5 +1079,11 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     print("Making results from %s and %s" % (args.delay_json, args.bw_json))
-    Delay.makeResults(Delay.loadResults('checks/%s' % args.delay_json), checkName = args.delay_pdf, saveResults = False)
-    Bandwidth.makeResults(Bandwidth.loadResults('checks/%s' % args.bw_json), checkName = args.bw_pdf, saveResults = False)
+    try:
+        Delay.makeResults(Delay.loadResults('checks/%s' % args.delay_json), checkName = args.delay_pdf, saveResults = False)
+    except:
+        pass
+    try:
+        Bandwidth.makeResults(Bandwidth.loadResults('checks/%s' % args.bw_json), checkName = args.bw_pdf, saveResults = False)
+    except:
+        pass

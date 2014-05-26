@@ -5,6 +5,8 @@ import time
 import signal
 import shlex
 import os
+import socket
+import traceback
 
 _float_format = r'\d+\.\d+'
 _int_format = r'\d+'
@@ -98,8 +100,77 @@ class BwStats(object):
                 'bw': self.bw}
 
 
-# class LossStats(object):
-#     def __init__(self
+# class PythonEcho(object):
+#     P_TCP = ''
+#     P_UDP = '-udp'
+#     # P_SCTP = '-sctp'
+#
+#     _SRV_EXEC = 'ncat'
+#     _SERVER_CMD = '{srvExec} -n -e /bin/cat -k {protocol} -l {port}'
+#
+#     DEFAULT_OPTIONS = {
+#         'protocol': P_TCP,
+#         'port': 10001,
+#         'npackets': 4
+#
+#     }
+#
+#     @classmethod
+#     def ping(cls, nodes, binDir = None, **options):
+#         client, server = nodes
+#         opts = {
+#         }
+#
+#         if binDir is not None:
+#             opts['srvExec'] = os.path.join(binDir, cls._SRV_EXEC)
+#         else:
+#             opts['srvExec'] = cls._SRV_EXEC
+#         opts.update(cls.DEFAULT_OPTIONS)
+#         opts.update(**options)
+#         srv = server.popen(shlex.split(cls._SERVER_CMD.format(**opts)))
+#         time.sleep(5)
+#
+#         socketFlags = 0
+#         if opts['protocol'] == cls.P_TCP:
+#             socketFlags |= socket.TCP_NODELAY
+#             soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM, socketFlags)
+#
+#         else:
+#             soc = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socketFlags)
+#         soc.connect((server.IP(), opts['port']))
+#         #reuse addr
+#         soc.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+#         delays = []
+#         sent = 0
+#         received = 0
+#         recv_buf = memoryview(bytearray(1024))
+#         for i in range(0, opts['npackets']):
+#             try:
+#                 stp = time.time()
+#                 send = '%s' % stp
+#                 soc.sendall(send)
+#                 sent += 1
+#                 soc.recv_into(recv_buf, len(send))
+#                 received += 1
+#                 delays.append(stp - time.time())
+#             except socket.error:
+#                 traceback.print_exc()
+#                 pass
+#
+#         soc.close()
+#         srv.send_signal(signal.SIGINT)
+#         if sent < 1 or len(delays) < 1:
+#             return DelayStats()
+#
+#         avg = sum(delays) / len(delays)
+#         dev = math.sqrt(sum([(delay - avg) ** 2] for delay in delays) / len(delays))
+#         return DelayStats(sent = sent,
+#                           received = received,
+#                           rttmin = min(delays),
+#                           rttmax = max(delays),
+#                           rttavg = avg,
+#                           rttdev = dev)
+
 
 class Traceroute(object):
     """Adapter for the traceroute command"""
@@ -230,7 +301,8 @@ class Traceroute(object):
         def __init__(self, hopnum, address = "", times = None):
             self.address = address
             self.hopnum = hopnum
-            if times is None: times = []
+            if times is None:
+                times = []
             sent = len(times) if len(times) > 0 else -1.0
             rtimes = filter(None, times)
             received = len(rtimes) if len(rtimes) > 0 else -1.0
@@ -274,7 +346,7 @@ class Ping(object):
     @classmethod
     def loss(cls, nodes, binDir = None, **options):
         node, target = nodes
-        out, err, exitcode = node.pexec(cls._getPingCmd(target = target.IP(), binDir = binDir**options))
+        out, err, exitcode = node.pexec(cls._getPingCmd(target = target.IP(), binDir = binDir ** options))
         return cls._parsePing(out.decode())
 
 
@@ -557,7 +629,7 @@ class Spruce(object):
     _SND_CMD = '{sndExec} -h {receiverIp} -n {npairs} -c {bw}'
     _RCV_CMD = '{rcvExec}'
 
-    _BW_TPL = r'A|available B|bandwidth(?: estimate)?: (?P<bw>\d+)\sKbps'
+    _BW_TPL = r'A|available B|bandwidth(?: estimate)?: (?P<bw>\d+)\s+Kbps'
     DEFAULT_OPTIONS = {
         'npairs': 100,
         'bw': '100M'
@@ -844,7 +916,8 @@ class Abing(object):
             #divide by total to get average if more than one measure
             r.bw = (rbw / ttot) * (1000 ** 2)
             # r.rttavg = rttavg/ttot
-
+        if r.bw < 0:
+            print out
         return r
 
 
@@ -853,8 +926,8 @@ class Yaz(object):
     !!! Does NOT work in mininet as of yet for unknown reasons..."""
     _EXEC = 'yaz'
 
-    _SND_CMD = '{exec} -v -S {receiverIp} -p {controlPort} -P {port}'# -l {minPacketSize} -c {initPacketSize} -i {initPacketSpacing} -n {' \
-               # 'streamLength} -m {nStreams} -r {resolution}'# -s {streamSpacing}'
+    _SND_CMD = '{exec} -v -S {receiverIp} -p {controlPort} -P {port}'  # -l {minPacketSize} -c {initPacketSize} -i {initPacketSpacing} -n {' \
+    # 'streamLength} -m {nStreams} -r {resolution}'# -s {streamSpacing}'
     _RCV_CMD = '{exec} -v -R -p {controlPort} -P {port}'
 
     DEFAULT_OPTIONS = {
