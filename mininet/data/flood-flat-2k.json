@@ -15244,8 +15244,7 @@
             "name" : "h2541",
             "options" : {
                 "ip" : "10.0.11.1",
-                "isXHost" : "True",
-                "commandOpts" : "--add-prefix 10.0.1.0/24 --add-prefix 10.0.2.0/24 --add-prefix 10.0.3.0/24 --add-prefix 10.0.4.0/24 --add-prefix 10.0.5.0/24 --add-prefix 10.0.6.0/24 --add-prefix 10.0.7.0/24 --add-prefix 10.0.8.0/24 --add-prefix 10.0.9.0/24 --add-prefix 10.0.10.0/24"
+                "commandOpts" : "-id {name} --commander --add-prefix 10.0.1.0/24 --add-prefix 10.0.2.0/24 --add-prefix 10.0.3.0/24 --add-prefix 10.0.4.0/24 --add-prefix 10.0.5.0/24 --add-prefix 10.0.6.0/24 --add-prefix 10.0.7.0/24 --add-prefix 10.0.8.0/24 --add-prefix 10.0.9.0/24 --add-prefix 10.0.10.0/24"
             }
         }
     ],
