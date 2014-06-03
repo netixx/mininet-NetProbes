@@ -94,23 +94,23 @@ class Bandwidth(object):
         self.options = self.DEFAULT_OPTIONS.copy()
         self.options.update(options)
         self.methods = {
-            # 'iperf': {
-            #     'method': IPerf.bw,
-            #     'options': {}
-            # },
-            # 'spruce': {
-            #     'method': Spruce.bw,
-            #     'options': {'binDir': os.path.join(vars.testBinPath, 'spruce')}
-            # },
-            # 'igi': {
-            #     'method': IGI.bw,
-            #     'options': {'binDir': os.path.join(vars.testBinPath, 'igi')}
-            # },
-            # 'assolo': {
-            #     'method': Assolo.bw,
-            #     'options': {'binDir': os.path.join(vars.testBinPath, 'assolo'),
-            #                 'duration': 10}
-            # },
+            'iperf': {
+                'method': IPerf.bw,
+                'options': {}
+            },
+            'spruce': {
+                'method': Spruce.bw,
+                'options': {'binDir': os.path.join(vars.testBinPath, 'spruce')}
+            },
+            'igi': {
+                'method': IGI.bw,
+                'options': {'binDir': os.path.join(vars.testBinPath, 'igi')}
+            },
+            'assolo': {
+                'method': Assolo.bw,
+                'options': {'binDir': os.path.join(vars.testBinPath, 'assolo'),
+                            'duration': 10}
+            },
             'abing': {
                 'method': Abing.bw,
                 'options': {'binDir': os.path.join(vars.testBinPath, 'abing')}
