@@ -43,12 +43,12 @@ class EventsManager(object):
         event.id = len(cls.events)
         #     global timers
         if event.repeat is not None:
-            event.timerRun = Timer(cls.start_time, runPeriodicEvent, args = [event, cls.d_network])
+            event.timerRun = Timer(0.0, runPeriodicEvent, args = [event, cls.d_network])
             cls.events.append(event)
             info('* Event %s : Scheduled periodic event on equipment %s:\n > duration %s\n > period %s \n > modifying parameters : %s\n-------\n'
                  % (event.id, event.target, event.duration, event.repeat, ", ".join(event.variations.keys())))
         else:
-            event.timerRun = Timer(cls.start_time, runEvent, args = [event, cls.d_network])
+            event.timerRun = Timer(0.0, runEvent, args = [event, cls.d_network])
             cls.events.append(event)
             info('* Event %s : Scheduled event on equipment %s\n > duration %s\n > modifying parameters : %s\n-------\n'
                  % (event.id, event.target, event.duration, ", ".join(event.variations.keys())))

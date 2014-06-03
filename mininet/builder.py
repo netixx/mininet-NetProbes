@@ -307,7 +307,7 @@ def runTopo(topoFile, simParams, hostOptions, checkLevel):
     netprobes = collections.OrderedDict()
     try:
         start(net)
-        EventsManager.startClock(net)
+        check(net, checkLevel)
         for host in net.hosts:
             if host.monitor_rules is not None:
                 monitor.start(host, host.monitor_rules)
@@ -334,7 +334,8 @@ def runTopo(topoFile, simParams, hostOptions, checkLevel):
             else:
                 if host.isXHost:
                     makeTerm(host)
-        check(net, checkLevel)
+
+        EventsManager.startClock(net)
         CLI(net)
         mon = False
         counter = monitor.Counter()
