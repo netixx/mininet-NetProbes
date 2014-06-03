@@ -110,7 +110,7 @@
 			"name" : "h7",
 			"options" : {
 				"ip" : "10.2.1.7",
-				"commandOpts" : "-id h7wa --watcher delay",
+				"commandOpts" : "-id h7wa --watcher delay=x=2",
 				"isXHost" : "True"
 			}	
 		},
