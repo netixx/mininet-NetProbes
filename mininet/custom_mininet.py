@@ -79,8 +79,8 @@ class CLI(mininet.cli.CLI):
             args = parser.parse_args(shlex.split(line))
             if args.command == 'start':
                 EventsManager.startTimers()
-        except Exception as e:
-            mininet.log.info('A problem occurred : %s\n' % e)
+        except (SystemExit, Exception) as e:
+            mininet.log.error('A problem occurred : %s\n' % e)
 
 
 class _Host(object):
