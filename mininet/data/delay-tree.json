@@ -156,11 +156,11 @@
 	"events" : [
 		{
 			"target" : "l12",
-			"duration" : "dtime",
+			"duration" : "$dtime",
 			"repeat" : "none",
 			"variations" :
 				{
-					"delay" : "delay"
+					"delay" : "$delay"
 				}
 		}	
 	]

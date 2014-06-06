@@ -37,11 +37,11 @@
 	"events" :[
 		{
 			"target" : "l1",
-			"duration" : "dtime",
+			"duration" : "$dtime",
 			"repeat" : "none",
 			"variations" :
 				{
-					"delay" : "delay"
+					"delay" : "$delay"
 				}
 		}
 	]
