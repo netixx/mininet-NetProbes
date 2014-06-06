@@ -6,20 +6,20 @@ Created on 8 avr. 2014
 import argparse
 import re
 import shlex
+
 import mininet
 from mininet.link import TCIntf
-
 import monitor
 from events import EventsManager
 
-class CLI(mininet.cli.CLI):
 
+class CLI(mininet.cli.CLI):
     def do_monitor(self, line):
         """Start/stop or collect monitoring network usage of the nodes"""
         print("Not implemented")
         parser = argparse.ArgumentParser()
         # parser.add_argument('command',
-        #                     metavar = 'COMMAND',
+        # metavar = 'COMMAND',
         #                     choices = ['start', 'stop', 'collect', 'reset'],
         #                     dest = 'command',
         #                     help = 'Monitor command to run')
@@ -53,36 +53,40 @@ class CLI(mininet.cli.CLI):
         args = parser.parse_args(shlex.split(line))
         for host in self.mn.hosts():
             monitor.collect(host, args.file)
-        #
-        # if len(args.host) == 0:
-        #     hosts = self.mn.hosts()
-        # else:
-        #     hosts = [self.mn.getNde(h) for h in args.hosts]
-        #
-        # if args.command == 'start':
-        #     func = monitor.start
-        # elif args.command == 'stop':
-        #     func = monitor.stop
-        # elif args.command == 'collect':
-        #     func = monitor.collect
-        # elif args.command == 'reset':
-        #     func = monitor.reset
-        #
-        # for host in hosts:
-        #     func(monitor.getMonitor(host))
+            #
+            # if len(args.host) == 0:
+            #     hosts = self.mn.hosts()
+            # else:
+            #     hosts = [self.mn.getNde(h) for h in args.hosts]
+            #
+            # if args.command == 'start':
+            #     func = monitor.start
+            # elif args.command == 'stop':
+            #     func = monitor.stop
+            # elif args.command == 'collect':
+            #     func = monitor.collect
+            # elif args.command == 'reset':
+            #     func = monitor.reset
+            #
+            # for host in hosts:
+            #     func(monitor.getMonitor(host))
 
     def do_events(self, line):
-        parser = argparse.ArgumentParser()
-        subp = parser.add_subparsers(dest = 'command')
-        subp1 = subp.add_parser('start')
-        args = parser.parse_args(shlex.split(line))
-        if args.command == 'start':
-            EventsManager.startTimers()
+        try:
+            parser = argparse.ArgumentParser()
+            subp = parser.add_subparsers(dest = 'command')
+            subp1 = subp.add_parser('start')
+            args = parser.parse_args(shlex.split(line))
+            if args.command == 'start':
+                EventsManager.startTimers()
+        except Exception as e:
+            mininet.log.info('A problem occurred : %s\n' % e)
 
 
 class _Host(object):
     """A host with a command to run on startup"""
-    def __init__( self, isXHost = False, command = None, commandOpts = None, monitor_rules = None):
+
+    def __init__(self, isXHost = False, command = None, commandOpts = None, monitor_rules = None):
         self.isXHost = isXHost
         self.command = command
         self.commandOpts = commandOpts
@@ -90,7 +94,7 @@ class _Host(object):
 
 
 class Host(mininet.node.Host, _Host):
-    def __init__(self, name, inNamespace=True, isXHost = False, command = None, commandOpts = None, monitor_rules = None, **params):
+    def __init__(self, name, inNamespace = True, isXHost = False, command = None, commandOpts = None, monitor_rules = None, **params):
         mininet.node.Host.__init__(self, name, inNamespace, **params)
         _Host.__init__(self, isXHost = isXHost, command = command, commandOpts = commandOpts, monitor_rules = monitor_rules)
 
@@ -144,7 +148,7 @@ def rawCmd(node, *args):
 def tc(interface, cmd, tc = 'tc'):
     """Execute tc command for our interface"""
     c = cmd % (tc, interface)  # Add in tc command and our name
-    #     debug(" *** executing command: %s\n" % c)
+    # debug(" *** executing command: %s\n" % c)
     return rawCmd(interface.node, c)
 
 
