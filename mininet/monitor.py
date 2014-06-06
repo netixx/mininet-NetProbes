@@ -33,7 +33,7 @@ def start(node, rules):
     :param node: node to monitor
     :param rules: rules to monitor for this node
     """
-    info("Starting monitor for host %s\n"%node.name)
+    info("monitor ")
     for rule in rules:
         node.pexec(_formatCommand(_MON_START_TPL, rule))
 

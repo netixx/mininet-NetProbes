@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+# !/usr/bin/env python
 """
     Run Mininet hifi emulation of a custom network topology defined by a .json file
     Start a NetProbes instance per host (can be turned off by options)
@@ -93,7 +93,7 @@ class TopologyLoader(object):
             raise RuntimeError('Topology could not be read')
         # read all types of expected equipments
         for typeOfEquipment, listOfEquipment in graph.iteritems():
-            #switch on equipment type
+            # switch on equipment type
             if typeOfEquipment == self.KW_HOSTS:
                 self.hosts = listOfEquipment
             elif typeOfEquipment == self.KW_LINKS:
@@ -110,7 +110,7 @@ class TopologyLoader(object):
                 raise RuntimeError('Unknown equipment type or keyword')
         # load links last as they require other elements
         self.loadHosts()
-        #         self.loadRouters()
+        # self.loadRouters()
         self.loadSwitches()
         self.loadLinks()
         self.loadEvents()
@@ -124,7 +124,7 @@ class TopologyLoader(object):
                            'affected_check': check['affected_check'],
                            'unaffected_check': check['unaffected_check']}
 
-            #set checker class to use
+            # set checker class to use
             if check['variations'].has_key('delay'):
                 kw = 'delay'
             elif check['variations'].has_key('bw'):
@@ -159,7 +159,7 @@ class TopologyLoader(object):
         if len(self.routers) > 0:
             self.setOption('router', RemoteController)
         for router in self.routers:
-            #load router
+            # load router
             pass
 
     def loadHosts(self):
@@ -278,9 +278,9 @@ class CustomMininet(Mininet):
 
 # Use for routers
 # class POX(Controller):
-#     def __init__(self, name, cdir = None,
-#                   command = 'python pox.py',
-#                   cargs = ('openflow.of_01 --port=%s '
+# def __init__(self, name, cdir = None,
+# command = 'python pox.py',
+# cargs = ('openflow.of_01 --port=%s '
 #                           'forwarding.l2_learning'),
 #                   **kwargs):
 #         Controller.__init__(self, name, cdir = cdir,
@@ -301,8 +301,63 @@ class CustomMininet(Mininet):
 # CLI(net)
 # net.stop()
 
+def popen(host, cmd):
+    if args.show_command_output:
+        stdout = None
+        stderr = None
+    else:
+        stdout = open(os.devnull, 'wb')
+        stderr = open(os.devnull, 'wb')
+    import os
+    # devnull = open(os.devnull, 'wb')
+    # h = host.popen(cmd, stdin = open(os.devnull, 'wb'), stdout = open(os.devnull, 'wb'), stderr = open(os.devnull, 'wb'))
+    h = host.popen(cmd, stdin = None, stdout = stdout, stderr = stderr)
+    return h
+
+
 def runCommand(host):
-    return host.popen(shlex.split("%s" % host.command))
+    return popen(host, shlex.split("%s" % host.command))
+
+
+def interract(net):
+    if args.watcher_start_event or args.watcher_post_event or args.watcher_probe:
+        if args.watcher_start_event is not None:
+            lg.info("Waiting for signal on %s to start events\n" % args.watcher_start_event)
+            while not os.path.exists(args.watcher_start_event):
+                time.sleep(10)
+            os.remove(args.watcher_start_event)
+            EventsManager.startTimers()
+
+        if args.watcher_post_event is not None:
+            lg.info("Executing post event actions '%s'\n" % args.watcher_post_event)
+            import subprocess
+
+            cmd = args.watcher_post_event.split(" ")
+            rcmd = []
+            #replace name with ips
+            for c in cmd:
+                if netprobes.has_key(c):
+                    rcmd.append(net.nameToNode[c].IP())
+                else:
+                    rcmd.append(c)
+            lg.info("Running post command (%s)\n" % " ".join(rcmd))
+            p = subprocess.Popen(shlex.split(" ".join(rcmd)))
+            p.communicate()
+
+        if args.watcher_probe is not None:
+            lg.info("Waiting for watcher probe %s to terminate\n" % args.watcher_probe)
+            #while process is running
+            while netprobes[args.watcher_probe].poll() is None:
+                time.sleep(10)
+            if vars.watcher_output is not None and os.path.exists(vars.watcher_output):
+                import watcher_delay
+                import datetime
+
+                watcher_delay.appendResults(watcher_delay.makeResults(vars.watcher_output, vars.topoFile))
+                # prevent results from being processed twice
+                os.rename(vars.watcher_output, 'watchers/output/%s.json' % datetime.datetime.now())
+    else:
+        return CLI(net)
 
 
 def runTopo(topoFile, simParams, hostOptions, checkLevel):
@@ -310,14 +365,18 @@ def runTopo(topoFile, simParams, hostOptions, checkLevel):
     if checkLevel > 1:
         topo.setNetOption('link', TCLink)
     net = CustomMininet(topo = topo, **topo.getNetOptions())
+    global netprobes
     netprobes = collections.OrderedDict()
     try:
         start(net)
         check(net, checkLevel)
+        lg.info("Starting hosts: ")
         for host in net.hosts:
+            lg.info("%s " % host.name)
             if host.monitor_rules is not None:
                 monitor.start(host, host.monitor_rules)
             if host.command is not None:
+                lg.info("cmd ")
                 host.command = host.command.format(commandOpts = host.commandOpts, name = host.name).format(name = host.name)
                 if host.isXHost:
                     t = makeTerm(host, cmd = host.command)
@@ -335,14 +394,16 @@ def runTopo(topoFile, simParams, hostOptions, checkLevel):
                         pass
                     netprobes[host.name] = term
                 else:
-                    netprobes[host.name] = host.popen(shlex.split("%s" % host.command))
+                    netprobes[host.name] = runCommand(host)
                     # print(netprobes[host.name].communicate())
             else:
                 if host.isXHost:
                     makeTerm(host)
-
+                    lg.info("term ")
+            lg.info("done ")
+        lg.info("\n")
         EventsManager.startClock(net)
-        CLI(net)
+        interract(net)
         mon = False
         counter = monitor.Counter()
         for host in net.hosts:
@@ -380,9 +441,6 @@ def runTopo(topoFile, simParams, hostOptions, checkLevel):
                     lg.info("Send kill signal to %s\n" % name)
                     probe.kill()
         lg.info("Done\n")
-        if args.watcher_output is not None and os.path.exists(args.watcher_output):
-            import watcher_delay
-            watcher_delay.appendResults(watcher_delay.makeResults(args.watcher_output, topoFile))
 
 
 def check(net, level):
@@ -433,7 +491,7 @@ def makeTerm(node, title = 'Node', term = 'xterm', display = None, cmd = 'bash')
     display, tunnel = tunnelX11(node, display)
     if display is None:
         return []
-    term = node.popen(cmds[term] + [display, '-e', 'env TERM=ansi ' + cmd])
+    term = popen(node, cmds[term] + [display, '-e', 'env TERM=ansi ' + cmd])
     return [tunnel, term] if tunnel else [term]
 
 
@@ -453,6 +511,10 @@ if __name__ == '__main__':
     CustomMininet.init()
     parser = ArgumentParser(description = "Options for starting the custom Mininet network builder")
 
+    parser.add_argument("--show-command-output",
+                        dest = "show_command_output",
+                        action = 'store_true',
+                        default = False)
     #emulation options
     parser.add_argument("--topo",
                         dest = 'tfile',
@@ -517,9 +579,21 @@ if __name__ == '__main__':
                         help = 'Path to the bin directory')
 
     parser.add_argument('--watcher-output',
-                        dest= 'watcher_output',
+                        dest = 'watcher_output',
                         default = None,
                         help = "Path to the output file")
+
+    parser.add_argument('--watcher-probe',
+                        dest = 'watcher_probe',
+                        default = None)
+
+    parser.add_argument('--watcher-start-event',
+                        dest = 'watcher_start_event',
+                        default = None)
+
+    parser.add_argument('--watcher-post-event',
+                        dest = "watcher_post_event",
+                        default = None)
 
     args = parser.parse_args()
     topoFile = os.path.join(DIR, "data", args.tfile + ".json")
@@ -543,6 +617,8 @@ if __name__ == '__main__':
             hOpts['command'] = "-c 'strace {command} '".format(command = hOpts['command'])
     if args.force_x:
         hOpts['isXHost'] = True
+    vars.topoFile = topoFile
+    vars.watcher_output = args.watcher_output
     runTopo(topoFile = topoFile,
             simParams = args.vars,
             hostOptions = hOpts,

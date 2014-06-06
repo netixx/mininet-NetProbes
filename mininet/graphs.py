@@ -21,12 +21,17 @@ class _PyplotGraph(type):
         return decorate
 
     def decorate(cls, g_filter = False, g_grid = False, g_xtickslab = None, g_xticks = None,
-                 g_xlabel = None, g_ylabel = None, g_title = None,
+                 g_xlabel = None, g_ylabel = None, g_title = None, g_xgrid = False, g_ygrid = False,
                  **kwargs):
         if g_filter:
             return kwargs
         ax = cls.plt.gca()
         if g_grid:
+            g_xgrid = True
+            g_ygrid = True
+        if g_xgrid:
+            ax.xaxis.grid(True, linestyle = '-', which = 'major', color = 'lightgrey', alpha = 0.4)
+        if g_ygrid:
             ax.yaxis.grid(True, linestyle = '-', which = 'major', color = 'lightgrey', alpha = 0.5)
         if g_xlabel:
             cls.plt.xlabel(g_xlabel)

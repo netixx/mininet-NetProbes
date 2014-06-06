@@ -82,6 +82,14 @@ class CLI(mininet.cli.CLI):
         except (SystemExit, Exception) as e:
             mininet.log.error('A problem occurred : %s\n' % e)
 
+    def do_watchers(self, line):
+        import vars, os
+        if vars.watcher_output is not None and os.path.exists(vars.watcher_output):
+            import watcher_delay
+            import datetime
+            watcher_delay.appendResults(watcher_delay.makeResults(vars.watcher_output, vars.topoFile))
+            #prevent results from being processed twice
+            os.rename(vars.watcher_output, 'watchers/output/%s.json'%datetime.datetime.now())
 
 class _Host(object):
     """A host with a command to run on startup"""
