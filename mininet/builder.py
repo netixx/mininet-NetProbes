@@ -13,6 +13,7 @@ import re
 import time
 import shlex
 import collections
+from string import Template
 
 from mininet.net import Mininet
 from mininet.topolib import Topo
@@ -29,7 +30,9 @@ import monitor
 class CustomTopo(Topo):
     """Topology builder for any specified topology in json format"""
 
-    def __init__(self, topoFilePath = None, simParams = {}, hostOptions = None, **opts):
+    def __init__(self, topoFilePath = None, simParams = None, hostOptions = None, **opts):
+        if simParams is None:
+            simParams = {}
         pparams = {}
         # record parameters from the cli
         for param in simParams:
@@ -166,6 +169,9 @@ class TopologyLoader(object):
                 opts = host["options"]
                 if opts.has_key("cpu"):
                     self.setOption("host", CPULimitedHost)
+                if opts.has_key("commandOpts"):
+                    cmd = opts['commandOpts']
+                    opts['commandOpts'] = Template(cmd).substitute(**self.cliParams)
                 o = self.container.addHost(name, **host["options"])
             else:
                 o = self.container.addHost(name)
@@ -374,6 +380,9 @@ def runTopo(topoFile, simParams, hostOptions, checkLevel):
                     lg.info("Send kill signal to %s\n" % name)
                     probe.kill()
         lg.info("Done\n")
+        if args.watcher_output is not None and os.path.exists(args.watcher_output):
+            import watcher_delay
+            watcher_delay.appendResults(watcher_delay.makeResults(args.watcher_output, topoFile))
 
 
 def check(net, level):
@@ -452,8 +461,8 @@ if __name__ == '__main__':
 
     parser.add_argument("--vars",
                         dest = 'vars',
-                        nargs = '+',
                         default = [],
+                        action = 'append',
                         help = 'Pass variables to the emulation')
 
     parser.add_argument("--auto-start-events",
@@ -507,6 +516,11 @@ if __name__ == '__main__':
                         default = os.path.join(ROOT_DIR, 'bin'),
                         help = 'Path to the bin directory')
 
+    parser.add_argument('--watcher-output',
+                        dest= 'watcher_output',
+                        default = None,
+                        help = "Path to the output file")
+
     args = parser.parse_args()
     topoFile = os.path.join(DIR, "data", args.tfile + ".json")
     if args.start_time is not None:
@@ -529,7 +543,6 @@ if __name__ == '__main__':
             hOpts['command'] = "-c 'strace {command} '".format(command = hOpts['command'])
     if args.force_x:
         hOpts['isXHost'] = True
-
     runTopo(topoFile = topoFile,
             simParams = args.vars,
             hostOptions = hOpts,

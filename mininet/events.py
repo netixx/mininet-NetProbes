@@ -1,5 +1,6 @@
 from threading import Timer
 from mininet.log import info
+from string import Template
 
 class EventsManager(object):
 
@@ -88,8 +89,7 @@ def replaceParams(event, params):
         if type(val) is dict:
             replaceParams(val, params)
             continue
-        if params.has_key(val):
-            event[key] = params[val]
+        event[key] = Template(event[key]).substitute(**params)
 
 
 class NetEvent(object):

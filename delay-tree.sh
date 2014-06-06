@@ -18,6 +18,13 @@ else
     delay=$2
 fi
 
+if [[ -z $3 ]]
+then
+    granularity="0.3"
+else
+    granularity=$3
+fi
+
 #"$prog" --no-command --vars dtime=100000ms delay=300ms --start 30 --topo delay-tree --monitor usages/monitor.txt
-"$prog" --command "$DIR/start-probe.sh {commandOpts}" --vars dtime=1000000ms delay="$delay"ms --topo "$topo"
+"$prog" --command "$DIR/start-probe.sh {commandOpts}" --vars dtime=1000000ms --vars delay="$delay"ms --vars granularity="$granularity" --vars x="$delay" --topo "$topo"
 # --auto-start-events 200
