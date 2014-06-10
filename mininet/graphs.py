@@ -2,11 +2,12 @@
 
 import random
 
+
 class _PyplotGraph(type):
     """Interface with the pyplot object"""
 
     def __new__(mcs, *args, **kwargs):
-        #import pyplot and register  it
+        # import pyplot and register  it
         import matplotlib.pyplot as plt
 
         mcs.plt = plt
@@ -49,12 +50,13 @@ class Graph(object):
     """Properties for making graphs and interface to graph object"""
     __metaclass__ = _PyplotGraph
 
-    colors = ['b', 'g', 'c', 'm', 'y', 'k', 'aqua', 'blueviolet',
-              'chartreuse', 'coral', 'crimson', 'darkblue',
-              'darkslateblue', 'firebrick', 'forestgreen',
-              'indigo', 'maroon', 'mediumblue', 'navy',
-              'orange', 'orangered', 'purple', 'royalblue',
-              'seagreen', 'slateblue', 'teal', 'tomato']
+    colors = ['b', 'g', 'c', 'm', 'y', 'k', 'aqua', 'blueviolet', 'brown',
+              'cadetblue', 'chartreuse', 'chocolate', 'coral', 'cornflowerblue', 'crimson',
+              'darkblue', 'darkcyan', 'darkgrey', 'darkgreen', 'darkslateblue', 'darkgoldenrod', 'darkturquoise',
+              'deeppink', 'dodgerblue', 'firebrick', 'forestgreen', 'fuchsia', 'green', 'greenyellow', 'hotpink',
+              'indianred', 'indigo', 'lightseagreen', 'limegreen', 'maroon', 'mediumaquamarine', 'mediumblue',
+              'mediumvioletred', 'navy', 'olive', 'orange', 'orangered', 'orchid', 'purple', 'royalblue',
+              'seagreen', 'slateblue','sienna', 'steelblue', 'teal', 'tomato']
 
     @classmethod
     def getColor(cls, item = None):
