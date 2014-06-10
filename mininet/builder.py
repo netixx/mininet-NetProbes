@@ -306,9 +306,9 @@ def popen(host, cmd):
         stdout = None
         stderr = None
     else:
+        import os
         stdout = open(os.devnull, 'wb')
         stderr = open(os.devnull, 'wb')
-    import os
     # devnull = open(os.devnull, 'wb')
     # h = host.popen(cmd, stdin = open(os.devnull, 'wb'), stdout = open(os.devnull, 'wb'), stderr = open(os.devnull, 'wb'))
     h = host.popen(cmd, stdin = None, stdout = stdout, stderr = stderr)
