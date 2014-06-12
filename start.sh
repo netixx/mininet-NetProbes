@@ -21,7 +21,7 @@ ulimit -r unlimited
 ulimit -s unlimited
 ulimit -u unlimited
 
-ulimit -a
+#ulimit -a
 
 "$py" "$prog" "$@"
 
