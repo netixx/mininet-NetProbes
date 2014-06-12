@@ -20,15 +20,80 @@ def buildGraph(topo):
     return g
 
 
-def getBestMatch(availableSets, matchSet):
-    match = 0
-    j = 0
-    for se, values in enumerate(availableSets):
-        m = max(match, len(set(values) & set(matchSet)))
-        if m > match:
-            j = se
-            match = m
-    return j
+def setMatches(watcherSets, graphSets, watcherPoint):
+    wgs = None
+    ogs = None
+    for gs in graphSets:
+        if watcherPoint in gs:
+            wgs = gs
+        else:
+            ogs = gs
+
+    if wgs is None or ogs is None:
+        raise RuntimeError("Watcher point is not in graph")
+
+    representatives = sorted([(v['representative']['rttavg'], k) for k, v in watcherSets.iteritems()])
+    wgsColor = representatives[0][1]
+    ogsColor = representatives[1][1]
+
+    matches = {
+        wgsColor: wgs,
+        ogsColor: ogs
+    }
+
+    return matches
+
+    # # return dict of color:graphSet for color in watcherSets.keys()
+    # colors = watcherSets.keys()
+    # emptyWatcherSets = [c for c in colors if len(watcherSets[c]) == 0]
+    # cs = [c for c in colors if len(watcherSets[c]) > 0]
+    # if len(emptyWatcherSets) > 1:
+    # raise RuntimeError("More that one set to match is empty")
+    # tm = {}
+    #
+    # # calculate affinities
+    # for c in cs:
+    #     tm[c] = []
+    #     if len(watcherSets[c]) == 0:
+    #         continue
+    #     s = [p['address'] for p in watcherSets[c]]
+    #     for se, values in enumerate(graphSets):
+    #         o = float(len(set(values) & set(s)))
+    #         m = (o / len(values) + o / len(s)) /2
+    #         tm[c].append((m, se))
+    #         # highest values at the top of the list
+    #         tm[c].sort(reverse = True)
+    #
+    # # check that matches are all different
+    # vals = [v[0][1] for v in tm.values()]
+    # dup = [i for i, x in enumerate(vals) if vals.count(x) > 1]
+    # # check for duplicate values
+    # print tm
+    # print 0, sorted(graphSets[0])
+    # print 1, sorted(graphSets[1])
+    # print sorted([p['address'] for p in watcherSets['white']])
+    # exit()
+    # if len(dup) > 0:
+    #     # keys = tm.keys()
+    #     # dup = [keys[i] for i in dup]
+    #     raise RuntimeError("Error while attributing matches : duplicates found")
+    #
+    # indexes = range(len(graphSets))
+    # # finally return matches
+    # matches = {}
+    # for k, v in tm.iteritems():
+    #     bestMatch = v[0][1]
+    #     matches[k] = graphSets[bestMatch]
+    #     indexes.remove(bestMatch)
+    #
+    # if len(matches) != len(colors):
+    #     #assign remaining set to remaining match
+    #     if len(matches) + 1 == len(colors) and len(indexes) == 1:
+    #         color = [c for c in colors if c not in matches.keys()][0]
+    #         matches[color] = graphSets[indexes[0]]
+    #     else:
+    #         raise RuntimeError("Some items were not matched.")
+    # return matches
 
 
 def precision(watcherSet, graphSet):
@@ -43,7 +108,8 @@ def getRecallAndPrecision(matches, watcher):
     stats = {}
     l = 0.0
     for color, part in matches.iteritems():
-        waAddrs = [p['address'] for p in watcher[color]]
+        print watcher[color]
+        waAddrs = [p['address'] for p in watcher[color]['hosts']]
         p = precision(waAddrs, part)
         r = recall(waAddrs, part)
         stats[color] = {'precision': p,
@@ -57,7 +123,7 @@ def getRecallAndPrecision(matches, watcher):
 
 
 def makeResults(watcher_output, topoFile):
-    log.info("Making results from %s with topology %s\n" % (watcher_output, topoFile))
+    log.output("Making results from %s with topology %s\n" % (watcher_output, topoFile))
     nameToIp = {}
     topo = json.load(open(topoFile))
     for h in topo['hosts']:
@@ -68,10 +134,7 @@ def makeResults(watcher_output, topoFile):
         parts.append([nameToIp[p] for p in part if nameToIp.has_key(p)])
     assert len(parts) == 2
     watcher = json.load(open(watcher_output))
-    colors = watcher['sets'].keys()
-    matches = {}
-    for c in colors:
-        matches[c] = parts[getBestMatch(parts, [p['address'] for p in watcher['sets'][c]])]
+    matches = setMatches(watcher['sets'], parts, nameToIp[watcher['watcher']])
     # black = getBestMatch(parts, watcher, 'black')
     # white = 1 - black
 
@@ -83,12 +146,12 @@ def makeResults(watcher_output, topoFile):
     out['precisionAndRecall'] = precisionAndRecall
     out['graph'] = parts
     out['totalProbes'] = sum(len(part) for part in parts)
-    out['totalTestedProbes'] = sum(len(se) for se in watcher['sets'].values()) + len(watcher['grey'])
+    out['totalTestedProbes'] = sum(len(se['hosts']) for se in watcher['sets'].values()) + len(watcher['grey'])
     return out
 
 
 def appendResults(result, outFile = ALL_RESULTS_PATH):
-    log.info("Adding results from %s to %s\n" % (result, outFile))
+    log.output("Adding results from %s to %s\n" % (result, outFile))
     import os
 
     if os.path.exists(outFile):
@@ -101,86 +164,104 @@ def appendResults(result, outFile = ALL_RESULTS_PATH):
     makeGraphs(res)
 
 
+def exclusive(parameterSet):
+    ps = []
+    for p in parameterSet:
+        if sum(p.values()) == 1:
+            ps.append(p)
+
+    return ps
+
+
 def makeGraphs(results, plotPath = PLOT_PATH):
-    log.info("Making new graph at %s\n" % plotPath)
+    log.output("Making new graph at %s\n" % plotPath)
     from graphs import Graph as g
 
     plotter = Plotter(g, plotPath, results)
-    xSet = 10, 50, 200
-    granularitySet = 0.1, 0.5, 1.0
+    xSet = 10, 20, 50, 100, 200
+    granularitySet = 0.1, 0.3, 0.5, 0.8, 1.0
     metricSet = 0, 1
+    selectionSet = exclusive,  # None
     # length of grey, precision + recall (per set and total) wrt delay variation
+    # length of grey, precision + recall (per set and total) wrt granularity
+
     # paramSet = (balancedMetricWeight, ipMetricWeight, randomMetricWeight, delayMetricWeight, x, granularity)
     # print paramSet
-    for granularity in granularitySet:
-        log.info("Making new graph : variable is x, granularity : %s\n" % granularity)
-        plotter.plotAll(
-            variables = {
-                'x': None
-            },
-            parameters = {
-                'randomMetricWeight': metricSet,
-                'ipMetricWeight': metricSet,
-                'balancedMetricWeight': metricSet,
-                'delayMetricWeight': metricSet
-            },
-            grouping = {
-                'granularity': granularity
-            }
+    # print selection of result, then all results (None)
+    for paramSelection in selectionSet:
+        for granularity in granularitySet:
+            log.output("Making new graph : variable is x, granularity : %s\n" % granularity)
+            plotter.plotAllPlot(
+                variables = {
+                    'x': None
+                },
+                parameters = {
+                    'randomMetricWeight': metricSet,
+                    'ipMetricWeight': metricSet,
+                    'balancedMetricWeight': metricSet,
+                    'delayMetricWeight': metricSet
+                },
+                grouping = {
+                    'granularity': granularity
+                },
+                parameterSetSelection = paramSelection
 
-        )
-    for x in xSet:
-        log.info("Making new graph : variable is granularity, x : %s\n" % x)
-        plotter.plotAll(
-            variables = {
-                'granularity': None
-            },
-            parameters = {
-                'randomMetricWeight': metricSet,
-                'ipMetricWeight': metricSet,
-                'balancedMetricWeight': metricSet,
-                'delayMetricWeight': metricSet
-            },
-            grouping = {
-                'x': x
-            }
+            )
+        for x in xSet:
+            log.output("Making new graph : variable is granularity, x : %s\n" % x)
+            plotter.plotAllPlot(
+                variables = {
+                    'granularity': None
+                },
+                parameters = {
+                    'randomMetricWeight': metricSet,
+                    'ipMetricWeight': metricSet,
+                    'balancedMetricWeight': metricSet,
+                    'delayMetricWeight': metricSet
+                },
+                grouping = {
+                    'x': x
+                },
+                parameterSetSelection = paramSelection
 
-        )
+            )
+
+
 
     # aggregate some results
-    log.info("Making new graph : variable is granularity, x : %s\n" % repr(xSet))
-    plotter.plotAverage(
-        variables = {
-            'granularity': None
-        },
-        parameters = {
-            'randomMetricWeight': metricSet,
-            'ipMetricWeight': metricSet,
-            'balancedMetricWeight': metricSet,
-            'delayMetricWeight': metricSet
-        },
-        grouping = {
-            'x': xSet
-        }
-
-    )
+    # log.info("Making new graph : variable is granularity, x : %s\n" % repr(xSet))
+    # plotter.plotAverage(
+    # variables = {
+    # 'granularity': None
+    # },
+    # parameters = {
+    # 'randomMetricWeight': metricSet,
+    #         'ipMetricWeight': metricSet,
+    #         'balancedMetricWeight': metricSet,
+    #         'delayMetricWeight': metricSet
+    #     },
+    #     grouping = {
+    #         'x': xSet
+    #     }
+    #
+    # )
     plotter.close()
 
 
 # def plotAll(plotter, **variables):
 # # log.info("Making graph for %s\n" % ", ".join(["%s:%s" % (p,v) for p,v in variables.iteritems()]))
 # plotter.plotAll(**variables)
-# # length of grey, precision + recall (per set and total) wrt granularity
+#
 # # plotter.plotAll(granularity = None,
 # # x = 10,
-#     #                 randomMetricWeight = 1,
-#     #                 ipMetricWeight = 1,
-#     #                 balancedMetricWeight = 1,
-#     #                 delayMetricWeight = 1)
-#     # length of grey, precision + recall (per set and total) wrt static factors
-#     # plotter.plotAll(x = 10,
-#     # granularity = 0.3,
-#     #                 randomMetricWeight = None,
+# #                 randomMetricWeight = 1,
+# #                 ipMetricWeight = 1,
+# #                 balancedMetricWeight = 1,
+# #                 delayMetricWeight = 1)
+# # length of grey, precision + recall (per set and total) wrt static factors
+# # plotter.plotAll(x = 10,
+# # granularity = 0.3,
+# #                 randomMetricWeight = None,
 #     #                 ipMetricWeight = None,
 #     #                 balancedMetricWeight = None,
 #     #                 delayMetricWeight = None)
@@ -211,29 +292,34 @@ class Plotter(object):
     def plotAverage(self, variables, parameters = None, grouping = None):
         pass
 
-    def plotAll(self, variables, parameters = None, grouping = None):
+    def plotAllPlot(self, grouping = None, **args):
         if grouping is None:
             grouping = {}
-
-        self.scatterGrey(variables, parameters, grouping)
+        self.plotGrey(grouping = grouping, **args)
         fig = self.gr.gcf()
         fig.set_size_inches(15, 10)
         self.pdf.savefig(bbox_inches = 'tight')  # 'checks/delay.pdf', format = 'pdf', )
         self.gr.close()
 
-        self.scatterPrecisionAndRecall(variables, parameters, grouping)
+        self.plotPrecisionAndRecall(grouping = grouping, **args)
         fig = self.gr.gcf()
         fig.set_size_inches(15, 20)
         self.pdf.savefig(bbox_inches = 'tight')  # 'checks/delay.pdf', format = 'pdf', )
         self.gr.close()
 
-        self.plotGrey(variables, parameters, grouping)
+    def plotAll(self, grouping = None, **args):
+        if grouping is None:
+            grouping = {}
+
+        self.plotAllPlot(grouping = grouping, **args)
+
+        self.scatterGrey(grouping = grouping, **args)
         fig = self.gr.gcf()
         fig.set_size_inches(15, 10)
         self.pdf.savefig(bbox_inches = 'tight')  # 'checks/delay.pdf', format = 'pdf', )
         self.gr.close()
 
-        self.plotPrecisionAndRecall(variables, parameters, grouping)
+        self.scatterPrecisionAndRecall(grouping = grouping, **args)
         fig = self.gr.gcf()
         fig.set_size_inches(15, 20)
         self.pdf.savefig(bbox_inches = 'tight')  # 'checks/delay.pdf', format = 'pdf', )
@@ -311,44 +397,61 @@ class Plotter(object):
     def getPrecisionAndRecall(self, vars, selector):
         import numpy as np
 
-        x = np.array([exp['parameters'][vars] for exp in self.data if self.selectParams(exp, selector)])
-        precision = np.array([exp['precisionAndRecall']['total']['precision'] for exp in self.data if self.selectParams(exp, selector)])
-        recall = np.array([exp['precisionAndRecall']['total']['recall'] for exp in self.data if self.selectParams(exp, selector)])
+        d = np.array([
+            [exp['parameters'][vars] for exp in self.data if self.selectParams(exp, selector)],
+            [exp['precisionAndRecall']['total']['precision'] for exp in self.data if self.selectParams(exp, selector)],
+            [exp['precisionAndRecall']['total']['recall'] for exp in self.data if self.selectParams(exp, selector)]
+        ])
+        d.sort(axis = 1)
+        x = d[0]
+        precision = d[1]
+        recall = d[2]
         return x, precision, recall
 
     def getFMeasure(self, vars, selector):
         import numpy as np
 
-        x = np.array([exp['parameters'][vars] for exp in self.data if self.selectParams(exp, selector)])
-        fmeasure = np.array([exp['precisionAndRecall']['Fmeasure'] for exp in self.data if self.selectParams(exp, selector)])
+        d = np.array([
+            [exp['parameters'][vars] for exp in self.data if self.selectParams(exp, selector)],
+            [exp['precisionAndRecall']['Fmeasure'] for exp in self.data if self.selectParams(exp, selector)]
+        ])
+        d.sort(axis = 1)
+        x = d[0]
+        fmeasure = d[1]
         return x, fmeasure
 
-    def scatterPrecisionAndRecall(self, variables, parameters = None, grouping = None):
+    def scatterPrecisionAndRecall(self, **args):
         self.gr.subplot(2, 1, 1)
-        self.graphPrecisionAndRecall(self.gr.scatter, variables, parameters = parameters, grouping = grouping)
+        self.graphPrecisionAndRecall(grapher = self.gr.scatter, **args)
         self.gr.subplot(2, 1, 2)
-        self.graphFMeasure(self.gr.scatter, variables, parameters = parameters, grouping = grouping)
+        self.graphFMeasure(grapher = self.gr.scatter, **args)
 
 
-    def plotGrey(self, variables, parameters = None, grouping = None):
-        self.graphGrey(self.gr.plot, variables, parameters = parameters, grouping = grouping)
+    def plotGrey(self, **args):
+        self.graphGrey(grapher = self.gr.plot, **args)
         self.setMargins()
 
-    def plotPrecisionAndRecall(self, variables, parameters = None, grouping = None):
+    def plotPrecisionAndRecall(self, **args):
         self.gr.subplot(2, 1, 1)
-        self.graphPrecisionAndRecall(self.gr.plot, variables, parameters = parameters, grouping = grouping)
+        self.graphPrecisionAndRecall(grapher = self.gr.plot, **args)
         self.setMargins()
         self.gr.subplot(2, 1, 2)
-        self.graphFMeasure(self.gr.plot, variables, parameters = parameters, grouping = grouping)
+        self.graphFMeasure(grapher = self.gr.plot, **args)
         self.setMargins()
 
-    def graphPrecisionAndRecall(self, grapher, variables, parameters = None, grouping = None):
+    def graphPrecisionAndRecall(self, grapher = None, variables = None, parameters = None, grouping = None, parameterSetSelection = None):
+        if grapher is None or variables is None:
+            return
         vars = variables.keys()[0]
 
         # plot precision & recall
         paramSets = self.getParamSet(parameters)
+        if callable(parameterSetSelection):
+            paramSets = parameterSetSelection(paramSets)
+
         #plot all combination of parameters
         for paramSet in paramSets:
+
             selector = dict(grouping.items() + paramSet.items())
             x, precision, recall = self.getPrecisionAndRecall(vars, selector)
             # x = np.array([exp['parameters'][vars] for exp in self.data if self.selectParams(exp, selector)])
@@ -368,16 +471,20 @@ class Plotter(object):
                          g_title = self.wrapTitle("Recall and precision for %s with %s" % (vars, self.printParams(grouping))))
         self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
 
-    def graphFMeasure(self, grapher, variables, parameters = None, grouping = None):
+    def graphFMeasure(self, grapher = None, variables = None, parameters = None, grouping = None, parameterSetSelection = None):
+        if grapher is None or variables is None:
+            return
         vars = variables.keys()[0]
 
         paramSets = self.getParamSet(parameters)
+        if callable(parameterSetSelection):
+            paramSets = parameterSetSelection(paramSets)
         # plot Fmeasure
         for paramSet in paramSets:
             selector = dict(grouping.items() + paramSet.items())
             x, fmeasure = self.getFMeasure(vars, selector)
             grapher(x, fmeasure,
-                    marker = 'o',
+                    marker = self.gr.getMarker(),
                     label = "Fmeasure for %s" % self.printParams(paramSet),
                     color = self.gr.getColor(str(selector)), alpha = self.alpha)
             self.gr.hold = True
@@ -392,18 +499,29 @@ class Plotter(object):
     def getGreys(self, vars, selector):
         import numpy as np
 
-        x = np.array([exp['parameters'][vars] for exp in self.data if self.selectParams(exp, selector)])
-        y1 = np.array([float(len(exp['grey'])) / exp['totalTestedProbes'] for exp in self.data if self.selectParams(exp, selector)])
-        y2 = np.array([float(len(exp['grey'])) / exp['totalProbes'] for exp in self.data if self.selectParams(exp, selector)])
+        d = np.array([
+            [exp['parameters'][vars] for exp in self.data if self.selectParams(exp, selector)],
+            [float(len(exp['grey'])) / exp['totalTestedProbes'] for exp in self.data if self.selectParams(exp, selector)],
+            [float(len(exp['grey'])) / exp['totalProbes'] for exp in self.data if self.selectParams(exp, selector)]
+        ]
+        )
+        d.sort(axis = 1)
+        x = d[0]
+        y1 = d[1]
+        y2 = d[2]
         return x, y1, y2
 
-    def scatterGrey(self, variables, parameters = None, grouping = None):
-        self.graphGrey(self.gr.scatter, variables, parameters = parameters, grouping = grouping)
+    def scatterGrey(self, **args):
+        self.graphGrey(grapher = self.gr.scatter, **args)
 
-    def graphGrey(self, grapher, variables, parameters = None, grouping = None):
+    def graphGrey(self, grapher = None, variables = None, parameters = None, grouping = None, parameterSetSelection = None):
+        if grapher is None or variables is None:
+            return
         vars = variables.keys()[0]
 
         paramSets = self.getParamSet(parameters)
+        if callable(parameterSetSelection):
+            paramSets = parameterSetSelection(paramSets)
         # plot all combination of parameters
         for paramSet in paramSets:
             selector = dict(grouping.items() + paramSet.items())
