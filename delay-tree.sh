@@ -27,4 +27,5 @@ fi
 
 #"$prog" --no-command --vars dtime=100000ms delay=300ms --start 30 --topo delay-tree --monitor usages/monitor.txt
 "$prog" --command "$DIR/start-probe.sh {commandOpts}" --vars dtime=1000000ms --vars delay="$delay"ms --vars granularity="$granularity" --vars x="$delay" --topo "$topo"
+#--watcher-output "$HOME/netprobes/data/watcher-output/delay.json"
 # --auto-start-events 200
