@@ -282,7 +282,7 @@ class CustomMininet(Mininet):
 # command = 'python pox.py',
 # cargs = ('openflow.of_01 --port=%s '
 # 'forwarding.l2_learning'),
-#                   **kwargs):
+# **kwargs):
 #         Controller.__init__(self, name, cdir = cdir,
 #                              command = command,
 #                              cargs = cargs, **kwargs)
@@ -307,6 +307,7 @@ def popen(host, cmd):
         stderr = None
     else:
         import os
+
         stdout = open(os.devnull, 'wb')
         stderr = open(os.devnull, 'wb')
     # devnull = open(os.devnull, 'wb')
@@ -346,19 +347,24 @@ def interract(net):
             p.communicate()
 
         if args.watcher_probe is not None:
+            import vars
             lg.output("Waiting for watcher probe %s to terminate\n" % args.watcher_probe)
             #while process is running
             while netprobes[args.watcher_probe].poll() is None:
                 time.sleep(10)
+            import datetime
+            now = datetime.datetime.now()
             if vars.watcher_output is not None and os.path.exists(vars.watcher_output):
                 import watcher_delay
-                import datetime
 
                 watcher_delay.appendResults(watcher_delay.makeResults(vars.watcher_output, vars.topoFile))
                 # prevent results from being processed twice
-                os.rename(vars.watcher_output, 'watchers/output/%s.json' % datetime.datetime.now())
-    else:
-        return CLI(net)
+                os.rename(vars.watcher_output, 'watchers/output/%s.json' % now)
+            if vars.watcher_log is not None and os.path.exists(vars.watcher_log):
+                import shutil
+                shutil.copyfile(vars.watcher_log, 'watchers/logs/%s.log' % now)
+        else:
+            return CLI(net)
 
 
 def runTopo(topoFile, simParams, hostOptions, checkLevel):
@@ -392,7 +398,8 @@ def runTopo(topoFile, simParams, hostOptions, checkLevel):
                         term = t
                     try:
                         if term.poll() is not None:
-                            lg.error("Terminal with command %s ended early for host %s : %s\n" % (host.command, host.name, repr(term.communicate())))
+                            lg.error(
+                                "Terminal with command %s ended early for host %s : %s\n" % (host.command, host.name, repr(term.communicate())))
                     except:
                         pass
                     netprobes[host.name] = term
@@ -417,6 +424,7 @@ def runTopo(topoFile, simParams, hostOptions, checkLevel):
         for name, probe in netprobes.iteritems():
             lg.info("Send sigint to probe %s\n" % name)
             import signal
+
             try:
                 probe.send_signal(signal.SIGINT)
                 time.sleep(0.05)
@@ -592,6 +600,11 @@ if __name__ == '__main__':
                         default = None,
                         help = "Path to the output file")
 
+    parser.add_argument('--watcher-log',
+                        dest = 'watcher_log',
+                        default = None,
+                        help = "Path to the watcher log file")
+
     parser.add_argument('--watcher-probe',
                         dest = 'watcher_probe',
                         default = None)
@@ -610,6 +623,7 @@ if __name__ == '__main__':
                         default = 0,
                         help = "Set verbosity.")
 
+
     args = parser.parse_args()
 
     if args.quiet >= 1:
@@ -622,7 +636,7 @@ if __name__ == '__main__':
         EventsManager.start_time = int(args.start_time)
     # monitorUsage = args.monitorUsage
     import vars
-
+    vars.watcher_log = args.watcher_log
     vars.testBinPath = args.bin_dir
     hOpts = {'commandOpts': "-id {name}"}
     if args.monitor_file:

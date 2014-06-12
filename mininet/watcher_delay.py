@@ -53,11 +53,11 @@ def setMatches(watcherSets, graphSets, watcherPoint):
     #
     # # calculate affinities
     # for c in cs:
-    #     tm[c] = []
-    #     if len(watcherSets[c]) == 0:
-    #         continue
-    #     s = [p['address'] for p in watcherSets[c]]
-    #     for se, values in enumerate(graphSets):
+    # tm[c] = []
+    # if len(watcherSets[c]) == 0:
+    # continue
+    # s = [p['address'] for p in watcherSets[c]]
+    # for se, values in enumerate(graphSets):
     #         o = float(len(set(values) & set(s)))
     #         m = (o / len(values) + o / len(s)) /2
     #         tm[c].append((m, se))
@@ -236,11 +236,11 @@ def makeGraphs(results, plotPath = PLOT_PATH):
     # },
     # parameters = {
     # 'randomMetricWeight': metricSet,
-    #         'ipMetricWeight': metricSet,
-    #         'balancedMetricWeight': metricSet,
-    #         'delayMetricWeight': metricSet
-    #     },
-    #     grouping = {
+    # 'ipMetricWeight': metricSet,
+    # 'balancedMetricWeight': metricSet,
+    # 'delayMetricWeight': metricSet
+    # },
+    # grouping = {
     #         'x': xSet
     #     }
     #
@@ -262,9 +262,9 @@ def makeGraphs(results, plotPath = PLOT_PATH):
 # # plotter.plotAll(x = 10,
 # # granularity = 0.3,
 # #                 randomMetricWeight = None,
-#     #                 ipMetricWeight = None,
-#     #                 balancedMetricWeight = None,
-#     #                 delayMetricWeight = None)
+# #                 ipMetricWeight = None,
+# #                 balancedMetricWeight = None,
+# #                 delayMetricWeight = None)
 
 
 class Plotter(object):
@@ -280,8 +280,8 @@ class Plotter(object):
     # import numpy as np
     #
     # self.greys = np.array([len(exp['greys']) for exp in self.data])
-    #     self.totalRecalls = np.array([exp['precisionAndRecall']['total']['recall'] for exp in self.data])
-    #     self.totalPrecisions = np.array([exp['precisionAndRecall']['total']['precision'] for exp in self.data])
+    # self.totalRecalls = np.array([exp['precisionAndRecall']['total']['recall'] for exp in self.data])
+    # self.totalPrecisions = np.array([exp['precisionAndRecall']['total']['precision'] for exp in self.data])
 
     def preparePlot(self):
         from matplotlib.backends.backend_pdf import PdfPages
@@ -398,24 +398,29 @@ class Plotter(object):
         import numpy as np
 
         d = np.array([
-            [exp['parameters'][vars] for exp in self.data if self.selectParams(exp, selector)],
-            [exp['precisionAndRecall']['total']['precision'] for exp in self.data if self.selectParams(exp, selector)],
-            [exp['precisionAndRecall']['total']['recall'] for exp in self.data if self.selectParams(exp, selector)]
-        ])
-        d.sort(axis = 1)
+                         [exp['parameters'][vars] for exp in self.data if self.selectParams(exp, selector)],
+                         [exp['precisionAndRecall']['total']['precision'] for exp in self.data if self.selectParams(exp, selector)],
+                         [exp['precisionAndRecall']['total']['recall'] for exp in self.data if self.selectParams(exp, selector)]
+                     ])
+        d = self.sort(d)
         x = d[0]
         precision = d[1]
         recall = d[2]
         return x, precision, recall
 
+    def sort(self, array):
+        if array.size > 0:
+            array = array[:, array[0].argsort()]
+        return array
+
     def getFMeasure(self, vars, selector):
         import numpy as np
 
         d = np.array([
-            [exp['parameters'][vars] for exp in self.data if self.selectParams(exp, selector)],
-            [exp['precisionAndRecall']['Fmeasure'] for exp in self.data if self.selectParams(exp, selector)]
-        ])
-        d.sort(axis = 1)
+                         [exp['parameters'][vars] for exp in self.data if self.selectParams(exp, selector)],
+                         [exp['precisionAndRecall']['Fmeasure'] for exp in self.data if self.selectParams(exp, selector)],
+                     ])
+        d = self.sort(d)
         x = d[0]
         fmeasure = d[1]
         return x, fmeasure
@@ -500,12 +505,15 @@ class Plotter(object):
         import numpy as np
 
         d = np.array([
-            [exp['parameters'][vars] for exp in self.data if self.selectParams(exp, selector)],
-            [float(len(exp['grey'])) / exp['totalTestedProbes'] for exp in self.data if self.selectParams(exp, selector)],
-            [float(len(exp['grey'])) / exp['totalProbes'] for exp in self.data if self.selectParams(exp, selector)]
-        ]
+                         [exp['parameters'][vars] for exp in self.data if self.selectParams(exp, selector)],
+                         [float(len(exp['grey'])) / exp['totalTestedProbes'] for exp in self.data if self.selectParams(exp, selector)],
+                         [float(len(exp['grey'])) / exp['totalProbes'] for exp in self.data if self.selectParams(exp, selector)]
+                     ],
         )
-        d.sort(axis = 1)
+
+        self.sort(d)
+        # print d
+        # d.sort(order = ['x'])
         x = d[0]
         y1 = d[1]
         y2 = d[2]
