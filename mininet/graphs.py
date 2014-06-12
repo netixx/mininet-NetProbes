@@ -45,7 +45,7 @@ class _PyplotGraph(type):
         if g_xtickslab:
             ax.set_xticklabels(g_xtickslab)
 
-
+import collections
 class Graph(object):
     """Properties for making graphs and interface to graph object"""
     __metaclass__ = _PyplotGraph
@@ -58,12 +58,20 @@ class Graph(object):
               'mediumvioletred', 'navy', 'olive', 'orange', 'orangered', 'orchid', 'purple', 'royalblue',
               'seagreen', 'slateblue','sienna', 'steelblue', 'teal', 'tomato']
 
+    markers = ['^', 'd', 'o', 'v', '>', '<', 'p', 's', '*']
+
     @classmethod
     def getColor(cls, item = None):
         """Get a color for item
         returns random color if item is none
         :param item: hash item to get color
         """
-        if item is None:
+        if item is None or not isinstance(item, collections.Hashable):
             return cls.colors[random.randint(0, len(cls.colors) - 1)]
         return cls.colors[hash(item) % len(cls.colors)]
+
+    @classmethod
+    def getMarker(cls, item = None):
+        if item is None or not isinstance(item, collections.Hashable):
+            return cls.markers[random.randint(0, len(cls.markers) - 1)]
+        return cls.markers[hash(item) % len(cls.markers)]
