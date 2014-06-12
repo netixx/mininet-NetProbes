@@ -1,5 +1,5 @@
 from threading import Timer
-from mininet.log import info
+from mininet.log import info, output
 from string import Template
 
 class EventsManager(object):
@@ -18,7 +18,7 @@ class EventsManager(object):
     def startClock(cls, net):
         cls.setNet(net)
         if cls.start_time is not None:
-            info('* Events starting in %s seconds\n' % cls.start_time)
+            output('* Events starting in %s seconds\n' % cls.start_time)
             cls.startTimers(delay = cls.start_time)
 
     @classmethod
@@ -46,12 +46,12 @@ class EventsManager(object):
         if event.repeat is not None:
             event.timerRun = Timer(0.0, runPeriodicEvent, args = [event, cls.d_network])
             cls.events.append(event)
-            info('* Event %s : Scheduled periodic event on equipment %s:\n > duration %s\n > period %s \n > modifying parameters : %s\n-------\n'
+            output('* Event %s : Scheduled periodic event on equipment %s:\n > duration %s\n > period %s \n > modifying parameters : %s\n-------\n'
                  % (event.id, event.target, event.duration, event.repeat, ", ".join(event.variations.keys())))
         else:
             event.timerRun = Timer(0.0, runEvent, args = [event, cls.d_network])
             cls.events.append(event)
-            info('* Event %s : Scheduled event on equipment %s\n > duration %s\n > modifying parameters : %s\n-------\n'
+            output('* Event %s : Scheduled event on equipment %s\n > duration %s\n > modifying parameters : %s\n-------\n'
                  % (event.id, event.target, event.duration, ", ".join(event.variations.keys())))
 
     @classmethod
@@ -60,7 +60,7 @@ class EventsManager(object):
 
 def runEvent(event, net):
     if callable(net) : net = net()
-    info('* Event %s : Running event on %s\n' % (event.id, event.target))
+    output('* Event %s : Running event on %s\n' % (event.id, event.target))
     targ = net.get(event.target)
     # supports links only
     targ.set(event.variations)
@@ -69,7 +69,7 @@ def runEvent(event, net):
         event.timerReset.start()
 
 def stopEvent(target, event):
-    info('* Event %s : Stopping event on %s\n' % (event.id, event.target))
+    output('* Event %s : Stopping event on %s\n' % (event.id, event.target))
     target.reset()
 
 def resetTarget(target):

@@ -281,7 +281,7 @@ class CustomMininet(Mininet):
 # def __init__(self, name, cdir = None,
 # command = 'python pox.py',
 # cargs = ('openflow.of_01 --port=%s '
-#                           'forwarding.l2_learning'),
+# 'forwarding.l2_learning'),
 #                   **kwargs):
 #         Controller.__init__(self, name, cdir = cdir,
 #                              command = command,
@@ -320,16 +320,17 @@ def runCommand(host):
 
 
 def interract(net):
+    lg.output('Started automatic interaction process\n')
     if args.watcher_start_event or args.watcher_post_event or args.watcher_probe:
         if args.watcher_start_event is not None:
-            lg.info("Waiting for signal on %s to start events\n" % args.watcher_start_event)
+            lg.output("Waiting for signal on %s to start events\n" % args.watcher_start_event)
             while not os.path.exists(args.watcher_start_event):
                 time.sleep(10)
             os.remove(args.watcher_start_event)
             EventsManager.startTimers()
 
         if args.watcher_post_event is not None:
-            lg.info("Executing post event actions '%s'\n" % args.watcher_post_event)
+            lg.output("Executing post event actions '%s'\n" % args.watcher_post_event)
             import subprocess
 
             cmd = args.watcher_post_event.split(" ")
@@ -340,12 +341,12 @@ def interract(net):
                     rcmd.append(net.nameToNode[c].IP())
                 else:
                     rcmd.append(c)
-            lg.info("Running post command (%s)\n" % " ".join(rcmd))
+            lg.output("Running post command (%s)\n" % " ".join(rcmd))
             p = subprocess.Popen(shlex.split(" ".join(rcmd)))
             p.communicate()
 
         if args.watcher_probe is not None:
-            lg.info("Waiting for watcher probe %s to terminate\n" % args.watcher_probe)
+            lg.output("Waiting for watcher probe %s to terminate\n" % args.watcher_probe)
             #while process is running
             while netprobes[args.watcher_probe].poll() is None:
                 time.sleep(10)
@@ -368,9 +369,11 @@ def runTopo(topoFile, simParams, hostOptions, checkLevel):
     global netprobes
     netprobes = collections.OrderedDict()
     try:
+        lg.output('Constructing virtual network..\n')
         start(net)
         check(net, checkLevel)
-        lg.info("Starting hosts: ")
+        lg.output("Starting hosts")
+        lg.info(": ")
         for host in net.hosts:
             lg.info("%s " % host.name)
             if host.monitor_rules is not None:
@@ -401,7 +404,7 @@ def runTopo(topoFile, simParams, hostOptions, checkLevel):
                     makeTerm(host)
                     lg.info("term ")
             lg.info("done ")
-        lg.info("\n")
+        lg.output("\n")
         EventsManager.startClock(net)
         interract(net)
         mon = False
@@ -414,9 +417,11 @@ def runTopo(topoFile, simParams, hostOptions, checkLevel):
         for name, probe in netprobes.iteritems():
             lg.info("Send sigint to probe %s\n" % name)
             import signal
-
-            probe.send_signal(signal.SIGINT)
-            time.sleep(0.05)
+            try:
+                probe.send_signal(signal.SIGINT)
+                time.sleep(0.05)
+            except OSError as e:
+                lg.error("Failed to send SIGINT to %s : %s\n", name, e)
         if mon:
             monitor.writeSummary(monitor_file, counter)
     finally:
@@ -432,15 +437,21 @@ def runTopo(topoFile, simParams, hostOptions, checkLevel):
             time.sleep(3)
             for name, probe in netprobes.iteritems():
                 if probe.poll() is None:
-                    lg.info("Send terminate signal to %s\n" % name)
-                    probe.terminate()
-                    time.sleep(0.001)
+                    try:
+                        lg.info("Send terminate signal to %s\n" % name)
+                        probe.terminate()
+                        time.sleep(0.001)
+                    except OSError as e:
+                        lg.error("Failed to terminate %s : %s\n", name, e)
             time.sleep(3)
             for name, probe in netprobes.iteritems():
                 if probe.poll() is None:
-                    lg.info("Send kill signal to %s\n" % name)
-                    probe.kill()
-        lg.info("Done\n")
+                    try:
+                        lg.info("Send kill signal to %s\n" % name)
+                        probe.kill()
+                    except OSError as e:
+                        lg.error("Failed to kill %s : %s\n", name, e)
+        lg.output("\nAll done\n")
 
 
 def check(net, level):
@@ -459,9 +470,9 @@ def start(net):
     # net.start()
     #does start for us
     rootnode = tools.connectToInternet(net)
-    print "Ips are as follows :"
+    lg.info("Ips are as follows :\n")
     for host in net.hosts:
-        print host.name, host.IP()
+        lg.info("%s,%s\n", host.name, host.IP())
     return rootnode
 
 
@@ -499,8 +510,6 @@ monitor_file = ""
 binDir = None
 netchecks = None
 if __name__ == '__main__':
-    lg.setLogLevel('info')
-
     DIR = os.path.dirname(os.path.abspath(__file__))
     ROOT_DIR = os.path.abspath(os.path.join(DIR, '..'))
 
@@ -595,7 +604,19 @@ if __name__ == '__main__':
                         dest = "watcher_post_event",
                         default = None)
 
+    parser.add_argument('-q', '--quiet',
+                        dest = 'quiet',
+                        action = 'count',
+                        default = 0,
+                        help = "Set verbosity.")
+
     args = parser.parse_args()
+
+    if args.quiet >= 1:
+        lg.setLogLevel('output')
+    else:
+        lg.setLogLevel('info')
+
     topoFile = os.path.join(DIR, "data", args.tfile + ".json")
     if args.start_time is not None:
         EventsManager.start_time = int(args.start_time)
