@@ -5,55 +5,37 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 prog=$DIR"/start.sh"
 
+delay="100"
+granularity="3"
+sampleSize="0.1"
+randWeight="1"
+ipWeight="1"
+delayWeight="1"
+balanceWeight="1"
+bucketType="ordered-bucket"
+
+
 if [[ -z $1 ]]
 then
-    topo="delay-tree"
+    topo="tree-128"
 else
     topo=$1
 fi
+
+if [[ -z $2 ]]
+then
+    watcherprobe="h128"
+else
+    watcherprobe=$2
+fi
+
 if [[ -z $3 ]]
 then
-    delay="10"
+    vars="--vars dtime=1000000ms --vars delay=${delay}ms --vars granularity=${granularity} --vars x=${delay} --vars delayWeight=${delayWeight} --vars balanceWeight=${balanceWeight} --vars ipWeight=${ipWeight} --vars randWeight=${randWeight} --vars sampleSize=${sampleSize} --vars bucketType=${bucketType}"
 else
-    delay=$3
+    vars=$3
 fi
 
-if [[ -z $4 ]]
-then
-    granularity="0.3"
-else
-    granularity=$4
-fi
-
-if [[ -z $5 ]]
-then
-    randWeight="1"
-else
-    randWeight=$5
-fi
-
-if [[ -z $6 ]]
-then
-    ipWeight="1"
-else
-    ipWeight=$6
-fi
-
-if [[ -z $7 ]]
-then
-    delayWeight="1"
-else
-    delayWeight=$7
-fi
-
-if [[ -z $8 ]]
-then
-    balanceWeight="1"
-else
-    balanceWeight=$8
-fi
-
-watcherprobe=$2
 #"$prog" --no-command --vars dtime=100000ms delay=300ms --start 30 --topo delay-tree --monitor usages/monitor.txt
-"$prog" -q --command "$DIR/start-probe.sh {commandOpts}" --vars dtime=1000000ms --vars delay="$delay"ms --vars granularity="$granularity" --vars x="$delay" --vars delayWeight="$delayWeight" --vars balanceWeight="$balanceWeight" --vars ipWeight="$ipWeight" --vars randWeight="$randWeight" --topo "nox-$topo" --watcher-output "$HOME/netprobes/data/watcher-output/delay.json" --watcher-probe "$watcherprobe" --watcher-post-event "$HOME/netprobes/commander.sh -ip $watcherprobe -c 'watcher delay run'" --watcher-start-event "$HOME/netprobes/data/watcher-output/events" --watcher-log "$HOME/netprobes/data/logs/watchers/${watcherprobe}watcher.log"
+"$prog" -q --command "$DIR/start-probe.sh {commandOpts}" ${vars} --topo "$topo" --watcher-output "$HOME/netprobes/data/watcher-output/delay.json" --watcher-probe "$watcherprobe" --watcher-post-event "$HOME/netprobes/commander.sh -ip $watcherprobe -c 'watcher delay run'" --watcher-start-event "$HOME/netprobes/data/watcher-output/events" --watcher-log "$HOME/netprobes/data/logs/watchers/${watcherprobe}watcher.log"
 # --auto-start-events 200
