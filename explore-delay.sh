@@ -48,8 +48,8 @@ do
                     do
                         for bucket in ${buckets}
                         do
-                            echo ">>>> Run simulation $prog for ipWeight=$ipWeight, randWeight=$randWeight, delayWeight=$delayWeight, balanceWeight=$balanceWeight, granularity=$granularity, delay=$delay"
-                            vars="--vars dtime=1000000ms --vars delay=${delay}ms --vars sampleSize=${sampleSize} --vars granularity=${granularity} --vars x=${delay} --vars delayWeight=${delayWeight} --vars balanceWeight=${balanceWeight} --vars ipWeight=${ipWeight} --vars randWeight={$randWeight} --vars bucketType=$bucket"
+                            echo ">>>> Run simulation $prog for ipWeight=$ipWeight, randWeight=$randWeight, delayWeight=$delayWeight, balanceWeight=$balanceWeight, granularity=$granularity, delay=$delay, sampleSize=$sampleSize, bucket=$bucket"
+                            vars="--vars dtime=1000000ms --vars delay="$delay"ms --vars sampleSize=$sampleSize --vars granularity=$granularity --vars x=$delay --vars delayWeight=$delayWeight --vars balanceWeight=$balanceWeight --vars ipWeight=$ipWeight --vars randWeight=$randWeight --vars bucketType=$bucket"
 
                             $prog "tree-128" "h128" "$vars" 2>&1 | tee -a "$DIR/explore-delay.txt"
                             ret=${PIPESTATUS[0]}
