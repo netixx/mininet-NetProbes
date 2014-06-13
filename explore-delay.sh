@@ -10,14 +10,15 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 granularities="1 4"
 delays="100"
 sampleSizes="0.01 0.1 0.2 0.3"
+buckets="probabilistic-bucket ordered-bucket"
 
 randWeights="0 1"
 ipWeights="0 1"
 delayWeights="0 1"
 balanceWeights="0 1"
-repeat="1 2 3 4 5 6"
+repeat="1 2 3 4 5"
 exclusive="1"
-buckets="probabilistic-bucket ordered-bucket"
+
 
 for rep in ${repeat}
 do

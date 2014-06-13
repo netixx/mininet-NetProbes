@@ -37,5 +37,5 @@ else
 fi
 
 #"$prog" --no-command --vars dtime=100000ms delay=300ms --start 30 --topo delay-tree --monitor usages/monitor.txt
-"$prog" -q --command "$DIR/start-probe.sh {commandOpts}" ${vars} --topo "$topo" --watcher-output "$HOME/netprobes/data/watcher-output/delay.json" --watcher-probe "$watcherprobe" --watcher-post-event "$HOME/netprobes/commander.sh -ip $watcherprobe -c 'watcher delay run'" --watcher-start-event "$HOME/netprobes/data/watcher-output/events" --watcher-log "$HOME/netprobes/data/logs/watchers/${watcherprobe}watcher.log"
+"$prog" -q --command "$DIR/start-probe.sh {commandOpts}" ${vars} --topo "nox-$topo" --watcher-output "$HOME/netprobes/data/watcher-output/delay.json" --watcher-probe "$watcherprobe" --watcher-post-event "$HOME/netprobes/commander.sh -ip $watcherprobe -c 'watcher delay run'" --watcher-start-event "$HOME/netprobes/data/watcher-output/events" --watcher-log "$HOME/netprobes/data/logs/watchers/${watcherprobe}watcher.log"
 # --auto-start-events 200
