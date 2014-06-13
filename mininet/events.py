@@ -1,9 +1,10 @@
 from threading import Timer
-from mininet.log import info, output
 from string import Template
 
-class EventsManager(object):
+from mininet.log import output, error
 
+
+class EventsManager(object):
     start_time = None
     t_start = None
     timers = []
@@ -42,38 +43,50 @@ class EventsManager(object):
     @classmethod
     def sheduleEvent(cls, event):
         event.id = len(cls.events)
-        #     global timers
+        # global timers
         if event.repeat is not None:
             event.timerRun = Timer(0.0, runPeriodicEvent, args = [event, cls.d_network])
             cls.events.append(event)
             output('* Event %s : Scheduled periodic event on equipment %s:\n > duration %s\n > period %s \n > modifying parameters : %s\n-------\n'
-                 % (event.id, event.target, event.duration, event.repeat, ", ".join(event.variations.keys())))
+                   % (event.id, event.target, event.duration, event.repeat, ", ".join("%s:%s" % (k, v) for k, v in event.variations.iteritems())))
         else:
             event.timerRun = Timer(0.0, runEvent, args = [event, cls.d_network])
             cls.events.append(event)
             output('* Event %s : Scheduled event on equipment %s\n > duration %s\n > modifying parameters : %s\n-------\n'
-                 % (event.id, event.target, event.duration, ", ".join(event.variations.keys())))
+                   % (event.id, event.target, event.duration, ", ".join(event.variations.keys())))
 
     @classmethod
     def d_network(cls):
         return cls.network
 
+
 def runEvent(event, net):
-    if callable(net) : net = net()
+    if callable(net):
+        net = net()
     output('* Event %s : Running event on %s\n' % (event.id, event.target))
     targ = net.get(event.target)
-    # supports links only
-    targ.set(event.variations)
+    try:
+        # supports links only
+        targ.set(event.variations)
+    except Exception as e:
+        error("Error while changing event parameters for event %s : %s\n" % (event.id, e))
+        targ.set(event.variations)
     if event.duration is not None:
         event.timerReset = Timer(event.duration, stopEvent, args = [targ, event])
         event.timerReset.start()
 
+
 def stopEvent(target, event):
     output('* Event %s : Stopping event on %s\n' % (event.id, event.target))
-    target.reset()
+    resetTarget(target)
+
 
 def resetTarget(target):
-    target.reset()
+    try:
+        target.reset()
+    except Exception as e:
+        error("Error while resetting event on %s : %s" % (target.name, e))
+
 
 def runPeriodicEvent(event, net):
     event.timerRun = Timer(event.repeat, runPeriodicEvent, args = [event, net])

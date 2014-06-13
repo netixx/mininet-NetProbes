@@ -283,7 +283,7 @@ class CustomMininet(Mininet):
 # cargs = ('openflow.of_01 --port=%s '
 # 'forwarding.l2_learning'),
 # **kwargs):
-#         Controller.__init__(self, name, cdir = cdir,
+# Controller.__init__(self, name, cdir = cdir,
 #                              command = command,
 #                              cargs = cargs, **kwargs)
 #
@@ -329,6 +329,7 @@ def interract(net):
                 time.sleep(10)
             os.remove(args.watcher_start_event)
             EventsManager.startTimers()
+            time.sleep(5)
 
         if args.watcher_post_event is not None:
             lg.output("Executing post event actions '%s'\n" % args.watcher_post_event)
@@ -348,21 +349,25 @@ def interract(net):
 
         if args.watcher_probe is not None:
             import vars
+
             lg.output("Waiting for watcher probe %s to terminate\n" % args.watcher_probe)
             #while process is running
             while netprobes[args.watcher_probe].poll() is None:
                 time.sleep(10)
             import datetime
+
             now = datetime.datetime.now()
+            if vars.watcher_log is not None and os.path.exists(vars.watcher_log):
+                import shutil
+
+                shutil.copyfile(vars.watcher_log, 'watchers/logs/%s.log' % now)
             if vars.watcher_output is not None and os.path.exists(vars.watcher_output):
                 import watcher_delay
 
                 watcher_delay.appendResults(watcher_delay.makeResults(vars.watcher_output, vars.topoFile))
                 # prevent results from being processed twice
                 os.rename(vars.watcher_output, 'watchers/output/%s.json' % now)
-            if vars.watcher_log is not None and os.path.exists(vars.watcher_log):
-                import shutil
-                shutil.copyfile(vars.watcher_log, 'watchers/logs/%s.log' % now)
+
         else:
             return CLI(net)
 
@@ -429,7 +434,7 @@ def runTopo(topoFile, simParams, hostOptions, checkLevel):
                 probe.send_signal(signal.SIGINT)
                 time.sleep(0.05)
             except OSError as e:
-                lg.error("Failed to send SIGINT to %s : %s\n", name, e)
+                lg.error("Failed to send SIGINT to %s : %s\n" % ( name, e))
         if mon:
             monitor.writeSummary(monitor_file, counter)
     finally:
@@ -450,7 +455,7 @@ def runTopo(topoFile, simParams, hostOptions, checkLevel):
                         probe.terminate()
                         time.sleep(0.001)
                     except OSError as e:
-                        lg.error("Failed to terminate %s : %s\n", name, e)
+                        lg.error("Failed to terminate %s : %s\n"%(name, e))
             time.sleep(3)
             for name, probe in netprobes.iteritems():
                 if probe.poll() is None:
@@ -458,7 +463,7 @@ def runTopo(topoFile, simParams, hostOptions, checkLevel):
                         lg.info("Send kill signal to %s\n" % name)
                         probe.kill()
                     except OSError as e:
-                        lg.error("Failed to kill %s : %s\n", name, e)
+                        lg.error("Failed to kill %s : %s\n"%(name, e))
         lg.output("\nAll done\n")
 
 
@@ -623,7 +628,6 @@ if __name__ == '__main__':
                         default = 0,
                         help = "Set verbosity.")
 
-
     args = parser.parse_args()
 
     if args.quiet >= 1:
@@ -636,6 +640,7 @@ if __name__ == '__main__':
         EventsManager.start_time = int(args.start_time)
     # monitorUsage = args.monitorUsage
     import vars
+
     vars.watcher_log = args.watcher_log
     vars.testBinPath = args.bin_dir
     hOpts = {'commandOpts': "-id {name}"}
@@ -649,7 +654,7 @@ if __name__ == '__main__':
     elif args.command:
         hOpts['command'] = args.command
         if args.strace:
-            hOpts['command'] = "-c 'strace {command} '".format(command = hOpts['command'])
+            hOpts['command'] = "strace {command}".format(command = hOpts['command'])
     if args.force_x:
         hOpts['isXHost'] = True
     vars.topoFile = topoFile

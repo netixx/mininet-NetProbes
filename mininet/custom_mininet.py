@@ -20,8 +20,8 @@ class CLI(mininet.cli.CLI):
         parser = argparse.ArgumentParser()
         # parser.add_argument('command',
         # metavar = 'COMMAND',
-        #                     choices = ['start', 'stop', 'collect', 'reset'],
-        #                     dest = 'command',
+        # choices = ['start', 'stop', 'collect', 'reset'],
+        # dest = 'command',
         #                     help = 'Monitor command to run')
         #
         # parser.add_argument('host',
@@ -84,12 +84,15 @@ class CLI(mininet.cli.CLI):
 
     def do_watchers(self, line):
         import vars, os
+
         if vars.watcher_output is not None and os.path.exists(vars.watcher_output):
             import watcher_delay
             import datetime
+
             watcher_delay.appendResults(watcher_delay.makeResults(vars.watcher_output, vars.topoFile))
-            #prevent results from being processed twice
-            os.rename(vars.watcher_output, 'watchers/output/%s.json'%datetime.datetime.now())
+            # prevent results from being processed twice
+            os.rename(vars.watcher_output, 'watchers/output/%s.json' % datetime.datetime.now())
+
 
 class _Host(object):
     """A host with a command to run on startup"""
@@ -150,7 +153,9 @@ def rawCmd(node, *args):
     if not re.search(r'\w', cmd):
         # Replace empty commands with something harmless
         cmd = 'echo -n'
-    node.popen(cmd)
+    out, err, returncode = node.pexec(cmd)
+    if returncode > 0:
+        raise Exception('Command failed : %s' % err)
 
 
 def tc(interface, cmd, tc = 'tc'):
@@ -161,13 +166,20 @@ def tc(interface, cmd, tc = 'tc'):
 
 
 def config(interface, params):
-    cmds = ['%s qdisc del dev %s root']
+    try:
+        tc(interface, '%s qdisc del dev %s root')
+    except Exception:
+        mininet.log.error("Nothing to reset\n")
+    cmds = []
     cmd, parent = TCIntf.bwCmds(interface, **filterBwOpts(params))
     cmds += cmd
     cmd, parent = TCIntf.delayCmds(parent, **filterDelayOpts(params))
     cmds += cmd
-    for cmd in cmds:
-        tc(interface, cmd)
+    try:
+        for cmd in cmds:
+            tc(interface, cmd)
+    except Exception as e:
+        raise Exception("Could not configure interface with %s : %s\n" % (cmd, e))
 
 
 def filterBwOpts(options):

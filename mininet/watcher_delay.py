@@ -97,7 +97,7 @@ def setMatches(watcherSets, graphSets, watcherPoint):
 
 
 def precision(watcherSet, graphSet):
-    return float(len(set(watcherSet) & set(graphSet))) / len(watcherSet)
+    return float(len(set(watcherSet) & set(graphSet))) / len(watcherSet) if len(watcherSet) > 0 else 0
 
 
 def recall(watcherSet, graphSet):
@@ -108,7 +108,7 @@ def getRecallAndPrecision(matches, watcher):
     stats = {}
     l = 0.0
     for color, part in matches.iteritems():
-        print watcher[color]
+        # print watcher[color]
         waAddrs = [p['address'] for p in watcher[color]['hosts']]
         p = precision(waAddrs, part)
         r = recall(waAddrs, part)
@@ -118,7 +118,8 @@ def getRecallAndPrecision(matches, watcher):
     stats['total'] = {'recall': sum([c['recall'] for c in stats.values()]) / l if l > 0 else 0,
                       'precision': sum([c['precision'] for c in stats.values()]) / l if l > 0 else 0}
 
-    stats['Fmeasure'] = 2 * stats['total']['precision'] * stats['total']['recall'] / (stats['total']['precision'] + stats['total']['recall'])
+    a = (stats['total']['precision'] + stats['total']['recall'])
+    stats['Fmeasure'] = 2 * stats['total']['precision'] * stats['total']['recall'] / a if a > 0 else 0
     return stats
 
 
@@ -151,7 +152,7 @@ def makeResults(watcher_output, topoFile):
 
 
 def appendResults(result, outFile = ALL_RESULTS_PATH):
-    log.output("Adding results from %s to %s\n" % (result, outFile))
+    log.output("Adding results from %s to %s\n" % (json.dumps(result, indent = 4, separators=(',', ':')), outFile))
     import os
 
     if os.path.exists(outFile):
@@ -321,7 +322,7 @@ class Plotter(object):
 
         self.scatterPrecisionAndRecall(grouping = grouping, **args)
         fig = self.gr.gcf()
-        fig.set_size_inches(15, 20)
+        fig.set_size_inches(20, 20)
         self.pdf.savefig(bbox_inches = 'tight')  # 'checks/delay.pdf', format = 'pdf', )
         self.gr.close()
 
@@ -394,7 +395,7 @@ class Plotter(object):
         # self.gr.margins(x = 0.05, y = 0.05)
         self.gr.margins(*margins)
 
-    def getPrecisionAndRecall(self, vars, selector):
+    def getTotalPrecisionAndRecall(self, vars, selector):
         import numpy as np
 
         d = np.array([
@@ -402,6 +403,20 @@ class Plotter(object):
                          [exp['precisionAndRecall']['total']['precision'] for exp in self.data if self.selectParams(exp, selector)],
                          [exp['precisionAndRecall']['total']['recall'] for exp in self.data if self.selectParams(exp, selector)]
                      ])
+        d = self.sort(d)
+        x = d[0]
+        precision = d[1]
+        recall = d[2]
+        return x, precision, recall
+
+    def getPrecisionAndRecall(self, vars, selector, color):
+        import numpy as np
+
+        d = np.array([
+            [exp['parameters'][vars] for exp in self.data if self.selectParams(exp, selector)],
+            [exp['precisionAndRecall'][color]['precision'] for exp in self.data if self.selectParams(exp, selector)],
+            [exp['precisionAndRecall'][color]['recall'] for exp in self.data if self.selectParams(exp, selector)]
+        ])
         d = self.sort(d)
         x = d[0]
         precision = d[1]
@@ -427,9 +442,9 @@ class Plotter(object):
 
     def scatterPrecisionAndRecall(self, **args):
         self.gr.subplot(2, 1, 1)
-        self.graphPrecisionAndRecall(grapher = self.gr.scatter, **args)
+        self.graphTotalPrecisionAndRecall(grapher = self.gr.scatter, **args)
         self.gr.subplot(2, 1, 2)
-        self.graphFMeasure(grapher = self.gr.scatter, **args)
+        self.graphTotalFMeasure(grapher = self.gr.scatter, **args)
 
 
     def plotGrey(self, **args):
@@ -437,14 +452,22 @@ class Plotter(object):
         self.setMargins()
 
     def plotPrecisionAndRecall(self, **args):
-        self.gr.subplot(2, 1, 1)
-        self.graphPrecisionAndRecall(grapher = self.gr.plot, **args)
+        grs = 3
+        i = 1
+        self.gr.subplot(grs, 1 ,i)
+        self.graphTotalFMeasure(grapher = self.gr.plot, **args)
         self.setMargins()
-        self.gr.subplot(2, 1, 2)
-        self.graphFMeasure(grapher = self.gr.plot, **args)
+        i+=1
+        self.gr.subplot(grs, 1, i)
+        self.graphTotalPrecisionAndRecall(grapher = self.gr.plot, **args)
         self.setMargins()
+        i += 1
+        self.gr.subplot(grs, 1, i)
+        self.graphPerSetPrecisionAndRecall(grapher = self.gr.plot, **args)
+        self.setMargins()
+        i += 1
 
-    def graphPrecisionAndRecall(self, grapher = None, variables = None, parameters = None, grouping = None, parameterSetSelection = None):
+    def graphTotalPrecisionAndRecall(self, grapher = None, variables = None, parameters = None, grouping = None, parameterSetSelection = None):
         if grapher is None or variables is None:
             return
         vars = variables.keys()[0]
@@ -458,7 +481,7 @@ class Plotter(object):
         for paramSet in paramSets:
 
             selector = dict(grouping.items() + paramSet.items())
-            x, precision, recall = self.getPrecisionAndRecall(vars, selector)
+            x, precision, recall = self.getTotalPrecisionAndRecall(vars, selector)
             # x = np.array([exp['parameters'][vars] for exp in self.data if self.selectParams(exp, selector)])
             # precision = np.array([exp['precisionAndRecall']['total']['precision'] for exp in self.data if self.selectParams(exp, selector)])
             # recall = np.array([exp['precisionAndRecall']['total']['recall'] for exp in self.data if self.selectParams(exp, selector)])
@@ -473,10 +496,41 @@ class Plotter(object):
         self.gr.decorate(g_xlabel = vars,
                          g_ylabel = "Recall/Precision",
                          g_grid = True,
-                         g_title = self.wrapTitle("Recall and precision for %s with %s" % (vars, self.printParams(grouping))))
+                         g_title = self.wrapTitle("Total Recall and precision for %s with %s" % (vars, self.printParams(grouping))))
         self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
 
-    def graphFMeasure(self, grapher = None, variables = None, parameters = None, grouping = None, parameterSetSelection = None):
+    def graphPerSetPrecisionAndRecall(self, grapher = None, variables = None, parameters = None, grouping = None, parameterSetSelection = None):
+        if grapher is None or variables is None:
+            return
+        vars = variables.keys()[0]
+
+        # plot precision & recall
+        paramSets = self.getParamSet(parameters)
+        if callable(parameterSetSelection):
+            paramSets = parameterSetSelection(paramSets)
+
+        # plot all combination of parameters
+        for paramSet in paramSets:
+
+            selector = dict(grouping.items() + paramSet.items())
+            for color in ('black', 'white'):
+                x, p, r = self.getPrecisionAndRecall(vars, selector, color)
+                grapher(x, p, marker = '>', label = 'Precision for set %s %s' % (color, self.printParams(paramSet)),
+                        color = self.gr.getColor(color+str(selector)), alpha = self.alpha)
+                self.gr.hold = True
+                grapher(x, r, marker = '<', label = 'Recall for set %s %s' % (color, self.printParams(paramSet)),
+                        color = self.gr.getColor(color+str(selector)), alpha = self.alpha)
+                self.gr.hold = True
+
+        self.gr.decorate(g_xlabel = vars,
+                         g_ylabel = "Recall/Precision",
+                         g_grid = True,
+                         g_title = self.wrapTitle("Per set Recall and precision for %s with %s" % (vars, self.printParams(grouping))))
+        self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
+
+
+
+    def graphTotalFMeasure(self, grapher = None, variables = None, parameters = None, grouping = None, parameterSetSelection = None):
         if grapher is None or variables is None:
             return
         vars = variables.keys()[0]
@@ -537,9 +591,9 @@ class Plotter(object):
             grapher(x, y1, marker = 'd', label = 'grey probes / testedProbes for %s' % self.printParams(paramSet),
                     color = self.gr.getColor(str(selector)), alpha = self.alpha)
             self.gr.hold = True
-            grapher(x, y2, marker = '^', label = 'grey probes / totalProbes for %s' % self.printParams(paramSet),
-                    color = self.gr.getColor(str(selector)), alpha = self.alpha)
-            self.gr.hold = True
+            # grapher(x, y2, marker = '^', label = 'grey probes / totalProbes for %s' % self.printParams(paramSet),
+            #         color = self.gr.getColor(str(selector)), alpha = self.alpha)
+            # self.gr.hold = True
 
         self.gr.decorate(g_xlabel = vars,
                          g_ylabel = 'Ratio of grey probes',
