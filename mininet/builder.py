@@ -320,56 +320,49 @@ def runCommand(host):
     return popen(host, shlex.split("%s" % host.command))
 
 
-def interract(net):
-    lg.output('Started automatic interaction process\n')
+def interract_once(net):
+    import interract
     if args.watcher_start_event or args.watcher_post_event or args.watcher_probe:
-        if args.watcher_start_event is not None:
-            lg.output("Waiting for signal on %s to start events\n" % args.watcher_start_event)
-            while not os.path.exists(args.watcher_start_event):
-                time.sleep(10)
-            os.remove(args.watcher_start_event)
-            EventsManager.startTimers()
-            time.sleep(5)
+        interract.wait_start_events(args.watcher_start_event)
 
-        if args.watcher_post_event is not None:
-            lg.output("Executing post event actions '%s'\n" % args.watcher_post_event)
-            import subprocess
-
-            cmd = args.watcher_post_event.split(" ")
-            rcmd = []
-            #replace name with ips
-            for c in cmd:
-                if netprobes.has_key(c):
-                    rcmd.append(net.nameToNode[c].IP())
-                else:
-                    rcmd.append(c)
-            lg.output("Running post command (%s)\n" % " ".join(rcmd))
-            p = subprocess.Popen(shlex.split(" ".join(rcmd)))
-            p.communicate()
+        interract.post_events(net, netprobes, args.watcher_post_event)
 
         if args.watcher_probe is not None:
-            import vars
+            interract.wait_process(netprobes[args.watcher_probe])
+            interract.make_watcher_results(args.watcher_log, args.watcher_output, vars.topoFile)
 
-            lg.output("Waiting for watcher probe %s to terminate\n" % args.watcher_probe)
-            #while process is running
-            while netprobes[args.watcher_probe].poll() is None:
-                time.sleep(10)
-            import datetime
+# def interract_mul(net):
+#     import interract
+#
+#     try:
+#         p = ArgumentParser()
+#         p.add_argument("--vars",
+#                        dest = 'vars',
+#                        default = [],
+#                        action = 'append',
+#                        help = 'Pass variables to the emulation')
+#         for sim in args.simulations:
+#             #parse parameters for this simulation
+#             simargs = p.parse_args(shlex.split(sim))
+#             interract.wait_start_events(args.watcher_start_event)
+#
+#             if args.watcher_probe is not None:
+#                 interract.wait_file()
+#                 interract.make_watcher_results(args.watcher_log, args.watcher_output, vars.topoFile)
+#     except (Exception, SystemExit) as e:
+#         lg.error(e)
 
-            now = datetime.datetime.now()
-            if vars.watcher_log is not None and os.path.exists(vars.watcher_log):
-                import shutil
 
-                shutil.copyfile(vars.watcher_log, 'watchers/logs/%s.log' % now)
-            if vars.watcher_output is not None and os.path.exists(vars.watcher_output):
-                import watcher_delay
-
-                watcher_delay.appendResults(watcher_delay.makeResults(vars.watcher_output, vars.topoFile))
-                # prevent results from being processed twice
-                os.rename(vars.watcher_output, 'watchers/output/%s.json' % now)
-
-        else:
-            return CLI(net)
+def interract(net):
+    lg.output('Started automatic interaction process\n')
+    # if len(args.simulations) > 0:
+    #     interract_mul(net)
+    #     return
+    if args.watcher_start_event or args.watcher_post_event or args.watcher_probe:
+        interract_once(net)
+        return
+    else:
+        return CLI(net)
 
 
 def runTopo(topoFile, simParams, hostOptions, checkLevel):
@@ -627,6 +620,12 @@ if __name__ == '__main__':
                         action = 'count',
                         default = 0,
                         help = "Set verbosity.")
+
+    parser.add_argument('--sim',
+                        dest = 'simulations',
+                        action = 'append',
+                        default = [],
+                        help = 'Simulation to perform without restarting network.')
 
     args = parser.parse_args()
 
