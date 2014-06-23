@@ -149,6 +149,7 @@ def makeResults(watcher_output, topoFile):
     _connectGraph(topoGraph, topo, tLinks)
     _makeLinkResults(watcher, topoGraph, out, ipToName, nameToIp)
     out['tlinks'] = tLinks
+    out['topoFile'] = topoFile
     return out
 
 
@@ -263,8 +264,33 @@ def makeGraphsLinks(plotter):
     sampleSizeSet = 0.1, 0.2, 0.3
     granularitySet = 1, 4
 
-    percentileSet = 70, 90, 95, 99, 100
-    # selectionMethods = [lambda x: plotter.np.percentile(x, p) for p in percentileSet]
+    def max(x):
+        return plotter.np.percentile(x, 100)
+    def percent99(x):
+        return plotter.np.percentile(x, 99)
+    def std(x):
+        return plotter.np.std(x)
+    def maxMinus1(x):
+        return plotter.np.max(x) - 1
+    def std2(x):
+        return 2*plotter.np.std(x)
+    def stdy(x):
+        return 1.8 * plotter.np.std(x)
+
+    # percentileSet = 70, 90, 95, 99, 100
+    # selectionMethods = (lambda x: plotter.np.percentile(x, 100),
+    #                     lambda x: plotter.np.percentile(x, 99),
+    #                     lambda x: plotter.np.std(x),
+    #                     lambda x: plotter.np.max(x) - 1
+    # )
+    selectionMethods = (
+        max,
+        percent99,
+        std,
+        std2,
+        stdy,
+        maxMinus1
+    )
     # for selectionMethod in selectionMethods:
     for paramSelection in selectionSet:
         plotter.plotLinksMetricSelection(
@@ -282,7 +308,7 @@ def makeGraphsLinks(plotter):
             grouping = {
             },
             parameterSetSelection = paramSelection,
-            percentile = percentileSet
+            electionMethod = selectionMethods
         )
     for paramSelection in selectionSet:
         for bucketType in bucketSet:
@@ -302,7 +328,7 @@ def makeGraphsLinks(plotter):
                         'granularity': granularity
                     },
                     parameterSetSelection = paramSelection,
-                    percentile = 100
+                    electionMethod = selectionMethods[0]
                 )
     for paramSelection in selectionSet:
         for sampleSize in sampleSizeSet:
@@ -561,9 +587,9 @@ class Plotter(object):
         self.gr.margins(*margins)
 
 
-    def sort(self, array):
+    def sort(self, array, row = 0):
         if array.size > 0:
-            array = array[:, array[0].argsort()]
+            array = array[:, array[row].argsort()]
         return array
 
 
@@ -572,7 +598,7 @@ class LinkPlotter(Plotter):
 
         exps = [exp for exp in self.data if self.selectParams(exp, selector)]
         if len(exps) == 0:
-            return self.np.array([]), self.np.array([])
+            return self.np.array([]), self.np.array([]), self.np.array([]), []
         tlinks = set()
 
         vals = self.np.array(
@@ -597,6 +623,8 @@ class LinkPlotter(Plotter):
     def getLinksTopScores(self, *args):
 
         mkeys, scores, dev, percentile = args
+        if len(mkeys) == 0 or len(scores) == 0 or len(dev) == 0:
+            return mkeys, scores, dev
 
         sth = self.np.percentile(scores, 80)  # / 2.0
 
@@ -623,17 +651,18 @@ class LinkPlotter(Plotter):
             return float('nan')
         return p + m
 
-    def getRawLinksMetric(self, variables, selector, percentile = 100):
+    def getRawLinksMetric(self, variables, selector, electionMethod = None):
 
         variable = variables.keys()[0]
         f = {}
-        p = percentile
+        if electionMethod is None:
+            electionMethod = self.np.max
         for exp in self.data:
             if self.selectParams(exp, selector, variables):
                 links = self.np.array([link for link in exp['edges'].iterkeys()])
                 scores = self.np.array([self._sumLink(link) for link in exp['edges'].itervalues()])
                 keepIndexes = self.np.where(self.np.logical_not(self.np.isnan(scores)))[0]
-                topScore = self.np.percentile(scores[keepIndexes], p)
+                topScore = electionMethod(scores[keepIndexes])
                 scores = self.np.ma.masked_array(scores, self.np.isnan(scores))
                 keepTopIndexes = self.np.ma.where((scores >= topScore))[0]
                 linksScores = self.np.array([
@@ -652,9 +681,9 @@ class LinkPlotter(Plotter):
                 f[exp['parameters'][variable]].append(s)
         return f
 
-    def getLinksMetric(self, variables, selector, percentile = 100):
+    def getLinksMetric(self, variables, selector, electionMethod = None):
 
-        f = self.getRawLinksMetric(variables, selector, percentile)
+        f = self.getRawLinksMetric(variables, selector, electionMethod)
         x = []
         y = []
         dev = []
@@ -670,16 +699,16 @@ class LinkPlotter(Plotter):
 
         return self.np.array(x), self.np.array(y), self.np.array(dev), self.np.array(err)
 
-    def plotLinksMetricSelection(self, variables = None, parameters = None, grouping = None, parameterSetSelection = None, percentile = 100):
+    def plotLinksMetricSelection(self, variables = None, parameters = None, grouping = None, parameterSetSelection = None, electionMethod = None):
         log.output("Making new graph MetricSelection with variables : %s, parameters : %s, grouping : %s\n" % (
             self.printVariables(variables), self.printParams(parameters), self.printParams(grouping)))
         paramSets = self.getParamSet(parameters)
         if callable(parameterSetSelection):
             paramSets = parameterSetSelection(paramSets)
-        if not isinstance(percentile, collections.Iterable):
-            percentile = [percentile]
+        if not isinstance(electionMethod, collections.Iterable):
+            electionMethod = [electionMethod]
 
-        for p in percentile:
+        for p in electionMethod:
             mets = {}
             # get all individual data for this percentile
             for paramSet in paramSets:
@@ -690,7 +719,7 @@ class LinkPlotter(Plotter):
                         mets[k] = {'mean': [], 'std': []}
                     mets[k]['mean'].append(self.np.mean(v))
                     mets[k]['std'].append(self.np.std(v))
-            stp = 'percentile = %s' % p
+            stp = 'election: %s' % p.__name__
             x = []
             y = []
             dev = []
@@ -741,19 +770,19 @@ class LinkPlotter(Plotter):
         self.gr.close()
 
 
-    def plotLinksMetric(self, variables = None, parameters = None, grouping = None, parameterSetSelection = None, percentile = 100):
+    def plotLinksMetric(self, variables = None, parameters = None, grouping = None, parameterSetSelection = None, electionMethod = None):
         log.output("Making new graph Metric with variables : %s, parameters : %s, grouping : %s\n" % (
             self.printVariables(variables), self.printParams(parameters), self.printParams(grouping)))
         paramSets = self.getParamSet(parameters)
         if callable(parameterSetSelection):
             paramSets = parameterSetSelection(paramSets)
 
-        if not isinstance(percentile, collections.Iterable):
-            percentile = [percentile]
+        if not isinstance(electionMethod, collections.Iterable):
+            electionMethod = [electionMethod]
         # plot all combination of parameters
         for paramSet in paramSets:
-            for p in percentile:
-                stp = 'percentile = %s' % p
+            for p in electionMethod:
+                stp = 'selection = %s' % p.__name__
                 selector = dict(grouping.items() + paramSet.items())
                 x, metric, dev, relerr = self.getLinksMetric(variables, selector, p)
                 self.gr.subplot(3, 1, 1)
@@ -818,38 +847,42 @@ class LinkPlotter(Plotter):
         mapping = {}
         i = 0
         percentile = 80
+        xticks = set()
+        xticksTop = set()
         for paramSet in paramSets:
             selector = dict(grouping.items() + paramSet.items())
-
             links, scores, dev, tlinks = self.getLinksScores(selector)
             for link in links:
                 if not mapping.has_key(link):
                     mapping[link] = i
                     i += 1
             x = [mapping[link] for link in links]
+            xticks.update(links)
             self.gr.subplot(3, 1, 1)
-            self.gr.xticks(x, links, rotation = 90, fontsize = 8)
             self.gr.plot(x, scores,
                          label = '%s (target %s)' % (self.printParams(paramSet), repr(tlinks)),
                          color = self.gr.getColor(str(paramSet)), alpha = self.alpha
             )
             self.gr.subplot(3, 1, 2)
-            self.gr.xticks(x, links, rotation = 90, fontsize = 8)
             self.gr.plot(x, dev,
                          label = '%s (target %s)' % (self.printParams(paramSet), repr(tlinks)),
                          color = self.gr.getColor(str(paramSet)), alpha = self.alpha
             )
             self.gr.subplot(3, 1, 3)
-
             topLinks, topScores, topDev = self.getLinksTopScores(links, scores, dev, percentile)
             topX = [mapping[link] for link in topLinks]
-            self.gr.xticks(topX, topLinks, rotation = 90, fontsize = 8)
+            xticksTop.update(topLinks)
             self.gr.plot(topX, topScores,
                          label = '%s (target %s)' % (self.printParams(paramSet), repr(tlinks)),
                          color = self.gr.getColor(str(paramSet)), alpha = self.alpha
             )
 
+        xticks = zip(*sorted([(mapping[link], link) for link in xticks]))
+        xticksTop = zip(*sorted([(mapping[link],link) for link in xticksTop]))
         self.gr.subplot(3, 1, 1)
+
+        if len(xticks) == 2:
+            self.gr.xticks(xticks[0],xticks[1], rotation = 90, fontsize = 8)
         self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
         self.gr.decorate(g_xlabel = 'links',
                          g_ylabel = "Link score",
@@ -858,6 +891,8 @@ class LinkPlotter(Plotter):
         )
 
         self.gr.subplot(3, 1, 2)
+        if len(xticks) == 2:
+            self.gr.xticks(xticks[0],xticks[1], rotation = 90, fontsize = 8)
         self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
         self.gr.decorate(g_xlabel = 'links',
                          g_ylabel = "Link score error",
@@ -866,6 +901,8 @@ class LinkPlotter(Plotter):
         )
 
         self.gr.subplot(3, 1, 3)
+        if len(xticksTop) == 2:
+            self.gr.xticks(xticksTop[0],xticksTop[1], rotation = 90, fontsize = 8)
         self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
         self.gr.decorate(g_xlabel = 'links',
                          g_ylabel = "Link score",
