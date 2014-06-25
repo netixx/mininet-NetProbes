@@ -101,9 +101,9 @@ def _setMatches(watcherSets, graphSets, watcherPoint):
     # #assign remaining set to remaining match
     # if len(matches) + 1 == len(colors) and len(indexes) == 1:
     # color = [c for c in colors if c not in matches.keys()][0]
-    #         matches[color] = graphSets[indexes[0]]
-    #     else:
-    #         raise RuntimeError("Some items were not matched.")
+    # matches[color] = graphSets[indexes[0]]
+    # else:
+    # raise RuntimeError("Some items were not matched.")
     # return matches
 
 
@@ -223,6 +223,15 @@ def exclusive(parameterSet):
     return ps
 
 
+def ge1(parameterSet):
+    ps = []
+
+    for p in parameterSet:
+        if sum(v for k, v in p.iteritems() if k in ('randomMetricWeight', 'ipMetricWeight', 'balancedMetricWeight', 'delayMetricWeight')) >= 1:
+            ps.append(p)
+
+    return ps
+
 def makeGraphs(results, plotPath = PLOT_PATH):
     pp = plotPath.replace(".pdf", "")
     log.output("Making new graph at %s\n" % pp)
@@ -230,86 +239,70 @@ def makeGraphs(results, plotPath = PLOT_PATH):
     # from graphs import D3Graph as d3g
 
     linkplotter = LinkPlotter(g, pp + "-link.pdf", results)
-    # setplotter = SetPlotter(g, pp + "-set.pdf", results)
+    setplotter = SetPlotter(g, pp + "-set.pdf", results)
     try:
         makeGraphsLinks(linkplotter)
-        # makeGraphsGranularitySampleSize(plotter)
-        # log.output("Making new graph at %s\n" % plotPath)
-        # from graphs import Graph as g
-        # # from graphs import D3Graph as d3g
-        #
-        # plotter = Plotter(g, plotPath, results)
-        # # xSet = 99, 95
-        # # granularitySet = 1
-        # plotter.plotAllPlot(
-        # variables  = {
-        # 'x' : None
-        # },
-        # parameters = {
-        #
-        # },
-        # grouping = {
-        #
-        # }
-        # )
-        # plotter.close()
     finally:
         linkplotter.close()
+    try:
+        makeGraphsGranularitySampleSize(setplotter)
+    finally:
+        setplotter.close()
 
 
 def makeGraphsLinks(plotter):
     metricSet = 0, 1
     bucketSet = 'probabilistic-bucket', 'ordered-bucket'
-    selectionSet = exclusive,  # None
+    selectionSet = ge1, #exclusive,  # None
     sampleSizeSet = 0.1, 0.2, 0.3
     granularitySet = 1, 4
 
     def max(x):
         return plotter.np.percentile(x, 100)
+
     def percent99(x):
         return plotter.np.percentile(x, 99)
+
     def std(x):
         return plotter.np.std(x)
+
     def maxMinus1(x):
         return plotter.np.max(x) - 1
+
     def std2(x):
-        return 2*plotter.np.std(x)
+        return 2 * plotter.np.std(x)
+
     def stdy(x):
         return 1.8 * plotter.np.std(x)
 
-    # percentileSet = 70, 90, 95, 99, 100
-    # selectionMethods = (lambda x: plotter.np.percentile(x, 100),
-    #                     lambda x: plotter.np.percentile(x, 99),
-    #                     lambda x: plotter.np.std(x),
-    #                     lambda x: plotter.np.max(x) - 1
-    # )
     selectionMethods = (
         max,
         percent99,
         std,
         std2,
-        stdy,
+        # stdy,
         maxMinus1
     )
     # for selectionMethod in selectionMethods:
     for paramSelection in selectionSet:
-        plotter.plotLinksMetricSelection(
-            variables = {
-                'sampleSize': [0.05, 1]
-            },
-            parameters = {
-                'randomMetricWeight': metricSet,
-                'ipMetricWeight': metricSet,
-                'balancedMetricWeight': metricSet,
-                'delayMetricWeight': metricSet,
-                'bucket_type': bucketSet,
-                'granularity': granularitySet
-            },
-            grouping = {
-            },
-            parameterSetSelection = paramSelection,
-            electionMethod = selectionMethods
-        )
+        for bucketType in bucketSet:
+            plotter.plotLinksMetricSelection(
+                variables = {
+                    'sampleSize': [0.05, 1]
+                },
+                parameters = {
+                    'randomMetricWeight': metricSet,
+                    'ipMetricWeight': metricSet,
+                    'balancedMetricWeight': metricSet,
+                    'delayMetricWeight': metricSet,
+                    'granularity': granularitySet
+                },
+                grouping = {
+                    'bucket_type': bucketType
+                },
+                parameterSetSelection = paramSelection,
+                electionMethod = selectionMethods
+            )
     for paramSelection in selectionSet:
         for bucketType in bucketSet:
             for granularity in granularitySet:
@@ -353,24 +346,16 @@ def makeGraphsLinks(plotter):
 
 
 def makeGraphsGranularitySampleSize(plotter):
-    # xSet = 10, 20, 50, 100, 200
-    x = 100
-    # granularitySet = 0.1, 0.3, 0.5, 0.8, 1.0
     granularitySet = 1, 4
     metricSet = 0, 1
-    selectionSet = exclusive,  # None
-    sampleSizeSet = 0.01, 0.1, 0.2, 0.3
+    selectionSet = ge1, #exclusive,  # None
     bucketSet = 'probabilistic-bucket', 'ordered-bucket'
     # length of grey, precision + recall (per set and total) wrt delay variation
     # length of grey, precision + recall (per set and total) wrt granularity
 
-    # paramSet = (balancedMetricWeight, ipMetricWeight, randomMetricWeight, delayMetricWeight, x, granularity)
-    # print paramSet
-    # print selection of result, then all results (None)
     for paramSelection in selectionSet:
         for granularity in granularitySet:
             for bucketType in bucketSet:
-                log.output("Making new graph : variable is sampleSize, granularity : %s\n" % granularity)
                 plotter.plotAllPlot(
                     variables = {
                         'sampleSize': None
@@ -383,99 +368,10 @@ def makeGraphsGranularitySampleSize(plotter):
                     },
                     grouping = {
                         'granularity': granularity,
-                        'x': x,
                         'bucket_type': bucketType
                     },
                     parameterSetSelection = paramSelection
                 )
-        for sampleSize in sampleSizeSet:
-            for bucketType in bucketSet:
-                # log.output("Making new graph : variable is granularity, x : %s\n" % x)
-                plotter.plotFMeasurePlot(
-                    variables = {
-                        'granularity': None
-                    },
-                    parameters = {
-                        'randomMetricWeight': metricSet,
-                        'ipMetricWeight': metricSet,
-                        'balancedMetricWeight': metricSet,
-                        'delayMetricWeight': metricSet,
-                    },
-                    grouping = {
-                        'sampleSize': sampleSize,
-                        'x': x,
-                        'bucket_type': bucketType
-                    },
-                    parameterSetSelection = paramSelection
-                )
-                # log.output("Making new graph : variable is sampleSize, granularity : %s\n" % granularity)
-                # plotter.plotAllPlot(
-                # variables = {
-                # 'sampleSize': None
-                # },
-                # parameters = {
-                # 'randomMetricWeight': metricSet,
-                # 'ipMetricWeight': metricSet,
-                # 'balancedMetricWeight': metricSet,
-                # 'delayMetricWeight': metricSet,
-                # 'bucket_type' : bucketSet
-                # },
-                # grouping = {
-                # 'granularity': granularity,
-                # 'x': x,
-                # },
-                #     parameterSetSelection = paramSelection
-                # )
-
-
-def makeGraphsOld(plotter):
-    xSet = 10, 20, 50, 100, 200
-    granularitySet = 0.1, 0.3, 0.5, 0.8, 1.0
-    metricSet = 0, 1
-    selectionSet = exclusive,  # None
-    # length of grey, precision + recall (per set and total) wrt delay variation
-    # length of grey, precision + recall (per set and total) wrt granularity
-
-    # paramSet = (balancedMetricWeight, ipMetricWeight, randomMetricWeight, delayMetricWeight, x, granularity)
-    # print paramSet
-    # print selection of result, then all results (None)
-    for paramSelection in selectionSet:
-        for granularity in granularitySet:
-            log.output("Making new graph : variable is x, granularity : %s\n" % granularity)
-            plotter.plotAllPlot(
-                variables = {
-                    'x': None
-                },
-                parameters = {
-                    'randomMetricWeight': metricSet,
-                    'ipMetricWeight': metricSet,
-                    'balancedMetricWeight': metricSet,
-                    'delayMetricWeight': metricSet
-                },
-                grouping = {
-                    'granularity': granularity
-                },
-                parameterSetSelection = paramSelection
-
-            )
-        for x in xSet:
-            log.output("Making new graph : variable is granularity, x : %s\n" % x)
-            plotter.plotAllPlot(
-                variables = {
-                    'granularity': None
-                },
-                parameters = {
-                    'randomMetricWeight': metricSet,
-                    'ipMetricWeight': metricSet,
-                    'balancedMetricWeight': metricSet,
-                    'delayMetricWeight': metricSet
-                },
-                grouping = {
-                    'x': x,
-                },
-                parameterSetSelection = paramSelection
-
-            )
 
 
 class Plotter(object):
@@ -592,6 +488,14 @@ class Plotter(object):
             array = array[:, array[row].argsort()]
         return array
 
+    def jitter(self, array):
+        import numpy as np
+
+        if array.size <= 1:
+            return
+        maxJitter = (array.max() - array.min()) / 100.0
+        array += (np.random.random_sample((array.size,)) - 0.5) * 2 * maxJitter
+
 
 class LinkPlotter(Plotter):
     def getLinksScores(self, selector):
@@ -617,7 +521,7 @@ class LinkPlotter(Plotter):
             v,
             dev
         ])
-        self.sort(r)
+        r = self.sort(r, 1)
         return r[1], r[2].astype(self.np.float32, copy = False), r[3].astype(self.np.float32, copy = False), tlinks
 
     def getLinksTopScores(self, *args):
@@ -635,7 +539,7 @@ class LinkPlotter(Plotter):
             scores[keepIndexes],
             dev[keepIndexes]
         ])
-        self.sort(r)
+        r = self.sort(r)
 
         return r[0], r[1], r[2]
 
@@ -732,8 +636,11 @@ class LinkPlotter(Plotter):
                 y.append(m)
                 dev.append(std)
                 err.append(std / m if m > 0 else 0)
+            if len(x) < 1:
+                return
             self.gr.subplot(2, 1, 1)
             x = self.np.array(x)
+            self.jitter(x)
             self.gr.errorbar(x, self.np.array(y), yerr = self.np.array(dev),
                              marker = self.gr.getMarker(stp),
                              label = stp,
@@ -753,7 +660,7 @@ class LinkPlotter(Plotter):
         self.gr.decorate(g_xlabel = self.printVariables(variables),
                          g_ylabel = "Metric",
                          g_grid = True,
-                         g_title = self.wrapTitle("Aggregated metrics for %s" % (self.printVariables(variables))))
+                         g_title = self.wrapTitle("Aggregated metrics for %s with %s" % (self.printVariables(variables), self.printParams(grouping))))
         self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
 
         self.gr.subplot(2, 1, 2)
@@ -761,7 +668,8 @@ class LinkPlotter(Plotter):
         self.gr.decorate(g_xlabel = self.printVariables(variables),
                          g_ylabel = "Error",
                          g_grid = True,
-                         g_title = self.wrapTitle("Aggregated error (avg(std)/avg(metrics)) for %s" % (self.printVariables(variables))))
+                         g_title = self.wrapTitle("Aggregated error (avg(std)/avg(metrics)) for %s with %s" % (
+                             self.printVariables(variables), self.printParams(grouping))))
         self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
 
         fig = self.gr.gcf()
@@ -780,62 +688,64 @@ class LinkPlotter(Plotter):
         if not isinstance(electionMethod, collections.Iterable):
             electionMethod = [electionMethod]
         # plot all combination of parameters
+        plot = False
         for paramSet in paramSets:
             for p in electionMethod:
                 stp = 'selection = %s' % p.__name__
                 selector = dict(grouping.items() + paramSet.items())
                 x, metric, dev, relerr = self.getLinksMetric(variables, selector, p)
-                self.gr.subplot(3, 1, 1)
-                self.gr.errorbar(x, metric, yerr = dev,
+                if len(x) > 0:
+                    plot = True
+                    self.jitter(x)
+                    self.gr.subplot(3, 1, 1)
+                    self.gr.errorbar(x, metric, yerr = dev,
+                                     marker = self.gr.getMarker(str(paramSet) + stp),
+                                     label = '%s' % self.printParams(paramSet, stp),
+                                     color = self.gr.getColor(str(paramSet) + stp), alpha = self.alpha
+                    )
+                    # self.gr.hold = True
+                    self.gr.subplot(3, 1, 2)
+                    self.gr.plot(x, relerr,
                                  marker = self.gr.getMarker(str(paramSet) + stp),
                                  label = '%s' % self.printParams(paramSet, stp),
                                  color = self.gr.getColor(str(paramSet) + stp), alpha = self.alpha
-                )
-                # self.gr.hold = True
-                self.gr.subplot(3, 1, 2)
-                self.gr.plot(x, relerr,
-                             marker = self.gr.getMarker(str(paramSet) + stp),
-                             label = '%s' % self.printParams(paramSet, stp),
-                             color = self.gr.getColor(str(paramSet) + stp), alpha = self.alpha
-                )
-                self.gr.subplot(3, 1, 3)
-                self.gr.plot(x, dev,
-                             marker = self.gr.getMarker(str(paramSet) + stp),
-                             label = '%s' % self.printParams(paramSet, stp),
-                             color = self.gr.getColor(str(paramSet) + stp), alpha = self.alpha
-                )
-        variable = variables.keys()[0]
-        # grouping['percentile'] = percentile
+                    )
+                    self.gr.subplot(3, 1, 3)
+                    self.gr.plot(x, dev,
+                                 marker = self.gr.getMarker(str(paramSet) + stp),
+                                 label = '%s' % self.printParams(paramSet, stp),
+                                 color = self.gr.getColor(str(paramSet) + stp), alpha = self.alpha
+                    )
+        if plot:
+            self.gr.subplot(3, 1, 1)
+            self.setMargins()
+            self.gr.decorate(g_xlabel = self.printVariables(variables),
+                             g_ylabel = "Metric",
+                             g_grid = True,
+                             g_title = self.wrapTitle("Metric for %s with %s " % (self.printVariables(variables), self.printParams(grouping))))
+            self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
 
-        self.gr.subplot(3, 1, 1)
-        self.setMargins()
-        self.gr.decorate(g_xlabel = variable,
-                         g_ylabel = "Metric",
-                         g_grid = True,
-                         g_title = self.wrapTitle("Metric for %s with %s " % (self.printVariables(variables), self.printParams(grouping))))
-        self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
+            self.gr.subplot(3, 1, 2)
+            self.setMargins()
+            self.gr.decorate(g_xlabel = self.printVariables(variables),
+                             g_ylabel = "Relative incertitude",
+                             g_grid = True,
+                             g_title = self.wrapTitle(
+                                 "Relative incertitude (std/metric) for %s with %s " % (self.printVariables(variables), self.printParams(grouping))))
+            self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
 
-        self.gr.subplot(3, 1, 2)
-        self.setMargins()
-        self.gr.decorate(g_xlabel = variable,
-                         g_ylabel = "Relative incertitude",
-                         g_grid = True,
-                         g_title = self.wrapTitle(
-                             "Relative incertitude (std/metric) for %s with %s " % (self.printVariables(variables), self.printParams(grouping))))
-        self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
+            self.gr.subplot(3, 1, 3)
+            self.setMargins()
+            self.gr.decorate(g_xlabel = self.printVariables(variables),
+                             g_ylabel = "Absolute incertitude",
+                             g_grid = True,
+                             g_title = self.wrapTitle(
+                                 "Absolute incertitude for %s with %s " % (self.printVariables(variables), self.printParams(grouping))))
+            self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
 
-        self.gr.subplot(3, 1, 3)
-        self.setMargins()
-        self.gr.decorate(g_xlabel = variable,
-                         g_ylabel = "Absolute incertitude",
-                         g_grid = True,
-                         g_title = self.wrapTitle(
-                             "Absolute incertitude for %s with %s " % (self.printVariables(variables), self.printParams(grouping))))
-        self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
-
-        fig = self.gr.gcf()
-        fig.set_size_inches(15, 25)
-        self.pdf.savefig(bbox_inches = 'tight')  # 'checks/delay.pdf', format = 'pdf', )
+            fig = self.gr.gcf()
+            fig.set_size_inches(15, 25)
+            self.pdf.savefig(bbox_inches = 'tight')  # 'checks/delay.pdf', format = 'pdf', )
         self.gr.close()
 
     def plotLinksScores(self, variables = None, parameters = None, grouping = None, parameterSetSelection = None):
@@ -852,116 +762,78 @@ class LinkPlotter(Plotter):
         for paramSet in paramSets:
             selector = dict(grouping.items() + paramSet.items())
             links, scores, dev, tlinks = self.getLinksScores(selector)
-            for link in links:
-                if not mapping.has_key(link):
-                    mapping[link] = i
-                    i += 1
-            x = [mapping[link] for link in links]
-            xticks.update(links)
+            if len(links) >= 1:
+                for link in links:
+                    if not mapping.has_key(link):
+                        mapping[link] = i
+                        i += 1
+                x = [mapping[link] for link in links]
+                xticks.update(links)
+                self.gr.subplot(3, 1, 1)
+                self.gr.plot(x, scores,
+                             label = '%s (target %s)' % (self.printParams(paramSet), repr(tlinks)),
+                             color = self.gr.getColor(str(paramSet)), alpha = self.alpha
+                )
+                self.gr.subplot(3, 1, 2)
+                self.gr.plot(x, dev,
+                             label = '%s (target %s)' % (self.printParams(paramSet), repr(tlinks)),
+                             color = self.gr.getColor(str(paramSet)), alpha = self.alpha
+                )
+                self.gr.subplot(3, 1, 3)
+                topLinks, topScores, topDev = self.getLinksTopScores(links, scores, dev, percentile)
+                topX = [mapping[link] for link in topLinks]
+                xticksTop.update(topLinks)
+                self.gr.plot(topX, topScores,
+                             label = '%s (target %s)' % (self.printParams(paramSet), repr(tlinks)),
+                             color = self.gr.getColor(str(paramSet)), alpha = self.alpha
+                )
+
+        if len(xticks) >= 1:
+            xticks = zip(*sorted([(mapping[link], link) for link in xticks]))
+            xticksTop = zip(*sorted([(mapping[link], link) for link in xticksTop]))
             self.gr.subplot(3, 1, 1)
-            self.gr.plot(x, scores,
-                         label = '%s (target %s)' % (self.printParams(paramSet), repr(tlinks)),
-                         color = self.gr.getColor(str(paramSet)), alpha = self.alpha
+
+            if len(xticks) == 2:
+                self.gr.xticks(xticks[0], xticks[1], rotation = 90, fontsize = 8)
+                self.gr.xlim(min(xticks[0]), max(xticks[0]))
+            self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
+            self.gr.decorate(g_xlabel = 'links',
+                             g_ylabel = "Link score",
+                             g_grid = True,
+                             g_title = self.wrapTitle("Link scores with %s" % self.printParams(grouping))
             )
+
             self.gr.subplot(3, 1, 2)
-            self.gr.plot(x, dev,
-                         label = '%s (target %s)' % (self.printParams(paramSet), repr(tlinks)),
-                         color = self.gr.getColor(str(paramSet)), alpha = self.alpha
+            if len(xticks) == 2:
+                self.gr.xticks(xticks[0], xticks[1], rotation = 90, fontsize = 8)
+                self.gr.xlim(min(xticks[0]), max(xticks[0]))
+            self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
+            self.gr.decorate(g_xlabel = 'links',
+                             g_ylabel = "Link score error",
+                             g_grid = True,
+                             g_title = self.wrapTitle("Error on scores with %s" % self.printParams(grouping))
             )
+
             self.gr.subplot(3, 1, 3)
-            topLinks, topScores, topDev = self.getLinksTopScores(links, scores, dev, percentile)
-            topX = [mapping[link] for link in topLinks]
-            xticksTop.update(topLinks)
-            self.gr.plot(topX, topScores,
-                         label = '%s (target %s)' % (self.printParams(paramSet), repr(tlinks)),
-                         color = self.gr.getColor(str(paramSet)), alpha = self.alpha
+            if len(xticksTop) == 2:
+                self.gr.xticks(xticksTop[0], xticksTop[1], rotation = 90, fontsize = 8)
+                self.gr.xlim(min(xticksTop[0]), max(xticksTop[0]))
+            self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
+            self.gr.decorate(g_xlabel = 'links',
+                             g_ylabel = "Link score",
+                             g_grid = True,
+                             g_title = self.wrapTitle("Link scores (top %s%% values) with %s" % (percentile, self.printParams(grouping)))
             )
 
-        xticks = zip(*sorted([(mapping[link], link) for link in xticks]))
-        xticksTop = zip(*sorted([(mapping[link],link) for link in xticksTop]))
-        self.gr.subplot(3, 1, 1)
-
-        if len(xticks) == 2:
-            self.gr.xticks(xticks[0],xticks[1], rotation = 90, fontsize = 8)
-        self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
-        self.gr.decorate(g_xlabel = 'links',
-                         g_ylabel = "Link score",
-                         g_grid = True,
-                         g_title = self.wrapTitle("Link scores with %s" % self.printParams(grouping))
-        )
-
-        self.gr.subplot(3, 1, 2)
-        if len(xticks) == 2:
-            self.gr.xticks(xticks[0],xticks[1], rotation = 90, fontsize = 8)
-        self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
-        self.gr.decorate(g_xlabel = 'links',
-                         g_ylabel = "Link score error",
-                         g_grid = True,
-                         g_title = self.wrapTitle("Error on scores with %s" % self.printParams(grouping))
-        )
-
-        self.gr.subplot(3, 1, 3)
-        if len(xticksTop) == 2:
-            self.gr.xticks(xticksTop[0],xticksTop[1], rotation = 90, fontsize = 8)
-        self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
-        self.gr.decorate(g_xlabel = 'links',
-                         g_ylabel = "Link score",
-                         g_grid = True,
-                         g_title = self.wrapTitle("Link scores (top %s%% values) with %s" % (percentile, self.printParams(grouping)))
-        )
-
-        fig = self.gr.gcf()
-        fig.set_size_inches(30, 30)
-        self.pdf.savefig(bbox_inches = 'tight')  # 'checks/delay.pdf', format = 'pdf', )
+            fig = self.gr.gcf()
+            fig.set_size_inches(30, 30)
+            self.pdf.savefig(bbox_inches = 'tight')  # 'checks/delay.pdf', format = 'pdf', )
         self.gr.close()
 
 
 class SetPlotter(Plotter):
-    def plotFMeasurePlot(self, grouping = None, **args):
-        if grouping is None:
-            grouping = {}
-
-        self.graphAvgFMeasure(grouping = grouping, **args)
-        self.setMargins()
-        fig = self.gr.gcf()
-        fig.set_size_inches(15, 10)
-        self.pdf.savefig(bbox_inches = 'tight')  # 'checks/delay.pdf', format = 'pdf', )
-        self.gr.close()
-
-    def plotAllPlot(self, grouping = None, **args):
-        if grouping is None:
-            grouping = {}
-        self.plotGrey(grouping = grouping, **args)
-        fig = self.gr.gcf()
-        fig.set_size_inches(15, 10)
-        self.pdf.savefig(bbox_inches = 'tight')  # 'checks/delay.pdf', format = 'pdf', )
-        self.gr.close()
-
-        self.plotPrecisionAndRecall(grouping = grouping, **args)
-        fig = self.gr.gcf()
-        fig.set_size_inches(15, 25)
-        self.pdf.savefig(bbox_inches = 'tight')  # 'checks/delay.pdf', format = 'pdf', )
-        self.gr.close()
-
-    def plotAllScatter(self, grouping = None, **args):
-        if grouping is None:
-            grouping = {}
-
-        self.plotAllPlot(grouping = grouping, **args)
-
-        self.scatterGrey(grouping = grouping, **args)
-        fig = self.gr.gcf()
-        fig.set_size_inches(15, 10)
-        self.pdf.savefig(bbox_inches = 'tight')
-        self.gr.close()
-
-        self.scatterPrecisionAndRecall(grouping = grouping, **args)
-        fig = self.gr.gcf()
-        fig.set_size_inches(20, 20)
-        self.pdf.savefig(bbox_inches = 'tight')
-        self.gr.close()
-
-    def getAvgFMeasure(self, variable, selector):
+    def getAvgFMeasure(self, variables, selector):
+        variable = variables.keys()[0]
         f = {}
         for exp in self.data:
             if self.selectParams(exp, selector):
@@ -982,54 +854,148 @@ class SetPlotter(Plotter):
         err = d[2]
         return x, fmeasure, err
 
-    def getFMeasure(self, variable, selector):
-
+    def getFMeasure(self, variables, selector):
+        variable = variables.keys()[0]
         d = self.np.array([
-            [exp['parameters'][variable] for exp in self.data if self.selectParams(exp, selector)],
-            [exp['precisionAndRecall']['Fmeasure'] for exp in self.data if self.selectParams(exp, selector)],
+            [exp['parameters'][variable] for exp in self.data if self.selectParams(exp, selector, variables)],
+            [exp['precisionAndRecall']['Fmeasure'] for exp in self.data if self.selectParams(exp, selector, variables)],
         ])
         d = self.sort(d)
         x = d[0]
         fmeasure = d[1]
         return x, fmeasure
 
+    def getTotalPrecisionAndRecall(self, variables, selector):
+        variable = variables.keys()[0]
+        d = self.np.array([
+            [exp['parameters'][variable] for exp in self.data if self.selectParams(exp, selector, variables)],
+            [exp['precisionAndRecall']['total']['precision'] for exp in self.data if self.selectParams(exp, selector, variables)],
+            [exp['precisionAndRecall']['total']['recall'] for exp in self.data if self.selectParams(exp, selector, variables)]
+        ])
+        d = self.sort(d)
+        x = d[0]
+        precision = d[1]
+        recall = d[2]
+        return x, precision, recall
+
+    def getPrecisionAndRecall(self, variables, selector, color):
+        variable = variables.keys()[0]
+        d = self.np.array([
+            [exp['parameters'][variable] for exp in self.data if self.selectParams(exp, selector, variables)],
+            [exp['precisionAndRecall'][color]['precision'] for exp in self.data if self.selectParams(exp, selector, variables)],
+            [exp['precisionAndRecall'][color]['recall'] for exp in self.data if self.selectParams(exp, selector, variables)]
+        ])
+        d = self.sort(d)
+        x = d[0]
+        precision = d[1]
+        recall = d[2]
+        return x, precision, recall
+
+    def getGreys(self, variables, selector):
+        variable = variables.keys()[0]
+        d = self.np.array([
+                              [exp['parameters'][variable] for exp in self.data if self.selectParams(exp, selector, variables)],
+                              [float(len(exp['grey'])) / exp['totalTestedProbes'] for exp in self.data if
+                               self.selectParams(exp, selector, variables)],
+                              [float(len(exp['grey'])) / exp['totalProbes'] for exp in self.data if self.selectParams(exp, selector, variables)]
+                          ],
+        )
+
+        self.sort(d)
+        x = d[0]
+        y1 = d[1]
+        y2 = d[2]
+        return x, y1, y2
+
+    def plotFMeasurePlot(self, grouping = None, **args):
+        if grouping is None:
+            grouping = {}
+
+        if self.graphAvgFMeasure(grouping = grouping, **args):
+            self.setMargins()
+            fig = self.gr.gcf()
+            fig.set_size_inches(15, 10)
+            self.pdf.savefig(bbox_inches = 'tight')
+        self.gr.close()
+
+    def plotAllPlot(self, grouping = None, **args):
+        if grouping is None:
+            grouping = {}
+        if self.plotGrey(grouping = grouping, **args):
+            fig = self.gr.gcf()
+            fig.set_size_inches(15, 10)
+            self.pdf.savefig(bbox_inches = 'tight')
+        self.gr.close()
+
+        if self.plotPrecisionAndRecall(grouping = grouping, **args):
+            fig = self.gr.gcf()
+            fig.set_size_inches(15, 25)
+            self.pdf.savefig(bbox_inches = 'tight')
+        self.gr.close()
+
+    def plotAllScatter(self, grouping = None, **args):
+        if grouping is None:
+            grouping = {}
+
+        self.plotAllPlot(grouping = grouping, **args)
+
+        if self.scatterGrey(grouping = grouping, **args):
+            fig = self.gr.gcf()
+            fig.set_size_inches(15, 10)
+            self.pdf.savefig(bbox_inches = 'tight')
+        self.gr.close()
+
+        if self.scatterPrecisionAndRecall(grouping = grouping, **args):
+            fig = self.gr.gcf()
+            fig.set_size_inches(20, 20)
+            self.pdf.savefig(bbox_inches = 'tight')
+        self.gr.close()
+
+
     def scatterPrecisionAndRecall(self, **args):
+        p = []
         self.gr.subplot(2, 1, 1)
-        self.graphTotalPrecisionAndRecall(grapher = self.gr.scatter, **args)
+        p.append(self.graphTotalPrecisionAndRecall(grapher = self.gr.scatter, **args))
         self.gr.subplot(2, 1, 2)
-        self.graphTotalFMeasure(grapher = self.gr.scatter, **args)
+        p.append(self.graphTotalFMeasure(grapher = self.gr.scatter, **args))
+        return any(item for item in p)
 
 
     def plotGrey(self, **args):
-        self.graphGrey(grapher = self.gr.plot, **args)
+        p = self.graphGrey(grapher = self.gr.plot, **args)
         self.setMargins()
+        return p
 
     def plotPrecisionAndRecall(self, **args):
+        p = []
         grs = 4
         i = 1
         self.gr.subplot(grs, 1, i)
-        self.graphAvgFMeasure(**args)
+        p.append(self.graphAvgFMeasure(**args))
         self.setMargins()
         i += 1
         self.gr.subplot(grs, 1, i)
-        self.graphFMeasureError(grapher = self.gr.plot, **args)
+        p.append(self.graphFMeasureError(grapher = self.gr.plot, **args))
         self.setMargins()
         i += 1
         self.gr.subplot(grs, 1, i)
-        self.graphTotalPrecision(grapher = self.gr.plot, **args)
+        p.append(self.graphTotalPrecision(grapher = self.gr.plot, **args))
         self.setMargins()
         i += 1
         self.gr.subplot(grs, 1, i)
-        self.graphTotalRecall(grapher = self.gr.plot, **args)
+        p.append(self.graphTotalRecall(grapher = self.gr.plot, **args))
         self.setMargins()
         i += 1
+        #true if one is true
+        return any(item for item in p)
 
 
     def graphTotalPrecisionAndRecall(self, grapher = None, variables = None, parameters = None, grouping = None, parameterSetSelection = None):
         if grapher is None or variables is None:
             return
-        variable = variables.keys()[0]
-
+        log.output("Making new graph Total Precision and Recall with variables : %s, parameters : %s, grouping : %s\n" % (
+            self.printVariables(variables), self.printParams(parameters), self.printParams(grouping)))
+        plot = False
         # plot precision & recall
         paramSets = self.getParamSet(parameters)
         if callable(parameterSetSelection):
@@ -1039,27 +1005,31 @@ class SetPlotter(Plotter):
         for paramSet in paramSets:
 
             selector = dict(grouping.items() + paramSet.items())
-            x, precision, recall = self.getTotalPrecisionAndRecall(variable, selector)
+            x, precision, recall = self.getTotalPrecisionAndRecall(variables, selector)
+            if len(x) > 0:
+                self.jitter(x)
+                plot = True
+                grapher(x, precision, marker = 'd', label = 'Total Precision for %s' % self.printParams(paramSet),
+                        color = self.gr.getColor(str(paramSet)), alpha = self.alpha)
+                self.gr.hold = True
+                grapher(x, recall, marker = '^', label = 'Total Recall for %s' % self.printParams(paramSet),
+                        color = self.gr.getColor(str(paramSet)), alpha = self.alpha)
+                self.gr.hold = True
 
-            grapher(x, precision, marker = 'd', label = 'Total Precision for %s' % self.printParams(paramSet),
-                    color = self.gr.getColor(str(paramSet)), alpha = self.alpha)
-            self.gr.hold = True
-            grapher(x, recall, marker = '^', label = 'Total Recall for %s' % self.printParams(paramSet),
-                    color = self.gr.getColor(str(paramSet)), alpha = self.alpha)
-            self.gr.hold = True
-
-        self.gr.decorate(g_xlabel = variable,
+        self.gr.decorate(g_xlabel = self.printVariables(variables),
                          g_ylabel = "Recall/Precision",
                          g_grid = True,
                          g_title = self.wrapTitle(
                              "Total Recall and precision for %s with %s" % (self.printVariables(variables), self.printParams(grouping))))
         self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
+        return plot
 
     def graphTotalPrecision(self, grapher = None, variables = None, parameters = None, grouping = None, parameterSetSelection = None):
         if grapher is None or variables is None:
             return
-        variable = variables.keys()[0]
-
+        log.output("Making new graph TotalPrecision with variables : %s, parameters : %s, grouping : %s\n" % (
+            self.printVariables(variables), self.printParams(parameters), self.printParams(grouping)))
+        plot = False
         # plot precision & recall
         paramSets = self.getParamSet(parameters)
         if callable(parameterSetSelection):
@@ -1069,23 +1039,28 @@ class SetPlotter(Plotter):
         for paramSet in paramSets:
 
             selector = dict(grouping.items() + paramSet.items())
-            x, precision, recall = self.getTotalPrecisionAndRecall(variable, selector)
+            x, precision, recall = self.getTotalPrecisionAndRecall(variables, selector)
+            if len(x) > 0:
+                self.jitter(x)
+                plot = True
+                grapher(x, precision, marker = 'd', label = 'Total Precision for %s' % self.printParams(paramSet),
+                        color = self.gr.getColor(str(paramSet)), alpha = self.alpha)
+                self.gr.hold = True
 
-            grapher(x, precision, marker = 'd', label = 'Total Precision for %s' % self.printParams(paramSet),
-                    color = self.gr.getColor(str(paramSet)), alpha = self.alpha)
-            self.gr.hold = True
-
-        self.gr.decorate(g_xlabel = variable,
+        self.gr.decorate(g_xlabel = self.printVariables(variables),
                          g_ylabel = "Precision",
                          g_grid = True,
                          g_title = self.wrapTitle("Total Precision for %s with %s" % (self.printVariables(variables), self.printParams(grouping))))
         self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
+        return plot
 
     def graphTotalRecall(self, grapher = None, variables = None, parameters = None, grouping = None, parameterSetSelection = None):
         if grapher is None or variables is None:
             return
-        variable = variables.keys()[0]
 
+        log.output("Making new graph Total Recall with variables : %s, parameters : %s, grouping : %s\n" % (
+            self.printVariables(variables), self.printParams(parameters), self.printParams(grouping)))
+        plot = False
         # plot precision & recall
         paramSets = self.getParamSet(parameters)
         if callable(parameterSetSelection):
@@ -1095,24 +1070,29 @@ class SetPlotter(Plotter):
         for paramSet in paramSets:
 
             selector = dict(grouping.items() + paramSet.items())
-            x, precision, recall = self.getTotalPrecisionAndRecall(variable, selector)
+            x, precision, recall = self.getTotalPrecisionAndRecall(variables, selector)
+            if len(x) > 0:
+                self.jitter(x)
+                plot = True
+                grapher(x, recall, marker = '^', label = 'Total Recall for %s' % self.printParams(paramSet),
+                        color = self.gr.getColor(str(paramSet)), alpha = self.alpha)
+                self.gr.hold = True
 
-            grapher(x, recall, marker = '^', label = 'Total Recall for %s' % self.printParams(paramSet),
-                    color = self.gr.getColor(str(paramSet)), alpha = self.alpha)
-            self.gr.hold = True
-
-        self.gr.decorate(g_xlabel = variable,
+        self.gr.decorate(g_xlabel = self.printVariables(variables),
                          g_ylabel = "Recall",
                          g_grid = True,
                          g_title = self.wrapTitle("Total Recall for %s with %s" % (self.printVariables(variables), self.printParams(grouping))))
         self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
-
+        return plot
 
     def graphPerSetPrecisionAndRecall(self, grapher = None, variables = None, parameters = None, grouping = None, parameterSetSelection = None):
         if grapher is None or variables is None:
             return
-        variable = variables.keys()[0]
 
+        log.output("Making new graph per set Precision and Recall with variables : %s, parameters : %s, grouping : %s\n" % (
+            self.printVariables(variables), self.printParams(parameters), self.printParams(grouping)))
+
+        plot = False
         # plot precision & recall
         paramSets = self.getParamSet(parameters)
         if callable(parameterSetSelection):
@@ -1123,38 +1103,46 @@ class SetPlotter(Plotter):
 
             selector = dict(grouping.items() + paramSet.items())
             for color in ('black', 'white'):
-                x, p, r = self.getPrecisionAndRecall(variable, selector, color)
-                grapher(x, p, marker = '>', label = 'Precision for set %s %s' % (color, self.printParams(paramSet)),
-                        color = self.gr.getColor(color + str(paramSet)), alpha = self.alpha)
-                self.gr.hold = True
-                grapher(x, r, marker = '<', label = 'Recall for set %s %s' % (color, self.printParams(paramSet)),
-                        color = self.gr.getColor(color + str(paramSet)), alpha = self.alpha)
-                self.gr.hold = True
+                x, p, r = self.getPrecisionAndRecall(variables, selector, color)
+                if len(x) > 0:
+                    plot = True
+                    grapher(x, p, marker = '>', label = 'Precision for set %s %s' % (color, self.printParams(paramSet)),
+                            color = self.gr.getColor(color + str(paramSet)), alpha = self.alpha)
+                    self.gr.hold = True
+                    grapher(x, r, marker = '<', label = 'Recall for set %s %s' % (color, self.printParams(paramSet)),
+                            color = self.gr.getColor(color + str(paramSet)), alpha = self.alpha)
+                    self.gr.hold = True
 
-        self.gr.decorate(g_xlabel = variable,
+        self.gr.decorate(g_xlabel = self.printVariables(variables),
                          g_ylabel = "Recall/Precision",
                          g_grid = True,
                          g_title = self.wrapTitle(
                              "Per set Recall and precision for %s with %s" % (self.printVariables(variables), self.printParams(grouping))))
         self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
+        return plot
 
 
     def graphAvgFMeasure(self, variables = None, parameters = None, grouping = None, parameterSetSelection = None):
         variable = variables.keys()[0]
-
+        log.output("Making new graph AvgFMeasure with variables : %s, parameters : %s, grouping : %s\n" % (
+            self.printVariables(variables), self.printParams(parameters), self.printParams(grouping)))
         paramSets = self.getParamSet(parameters)
         if callable(parameterSetSelection):
             paramSets = parameterSetSelection(paramSets)
+        plot = False
         # plot Fmeasure
         for paramSet in paramSets:
             selector = dict(grouping.items() + paramSet.items())
-            x, fmeasure, yerr = self.getAvgFMeasure(variable, selector)
-            self.gr.errorbar(x, fmeasure,
-                             yerr = yerr,
-                             marker = self.gr.getMarker(),
-                             label = "Fmeasure for %s" % self.printParams(paramSet),
-                             color = self.gr.getColor(str(paramSet)), alpha = self.alpha)
-            self.gr.hold = True
+            x, fmeasure, yerr = self.getAvgFMeasure(variables, selector)
+            if len(x) > 0:
+                self.jitter(x)
+                plot = True
+                self.gr.errorbar(x, fmeasure,
+                                 yerr = yerr,
+                                 marker = self.gr.getMarker(),
+                                 label = "Fmeasure for %s" % self.printParams(paramSet),
+                                 color = self.gr.getColor(str(paramSet)), alpha = self.alpha)
+                self.gr.hold = True
         self.gr.decorate(g_xlabel = variable,
                          g_ylabel = "Fmeasure",
                          g_grid = True,
@@ -1163,25 +1151,31 @@ class SetPlotter(Plotter):
         # self.gr.yscale('log')
 
         self.gr.draw()
+        return plot
 
     def graphFMeasureError(self, grapher = None, variables = None, parameters = None, grouping = None, parameterSetSelection = None):
         if grapher is None or variables is None:
             return
-        variable = variables.keys()[0]
 
+        log.output("Making new graph FMeasure Error with variables : %s, parameters : %s, grouping : %s\n" % (
+            self.printVariables(variables), self.printParams(parameters), self.printParams(grouping)))
+        plot = False
         paramSets = self.getParamSet(parameters)
         if callable(parameterSetSelection):
             paramSets = parameterSetSelection(paramSets)
         # plot Fmeasure
         for paramSet in paramSets:
             selector = dict(grouping.items() + paramSet.items())
-            x, fmeasure, yerr = self.getAvgFMeasure(variable, selector)
-            grapher(x, yerr,
-                    marker = self.gr.getMarker(),
-                    label = "Error for %s" % self.printParams(paramSet),
-                    color = self.gr.getColor(str(paramSet)), alpha = self.alpha)
-            self.gr.hold = True
-        self.gr.decorate(g_xlabel = variable,
+            x, fmeasure, yerr = self.getAvgFMeasure(variables, selector)
+            if len(x) > 0:
+                self.jitter(x)
+                plot = True
+                grapher(x, yerr,
+                        marker = self.gr.getMarker(),
+                        label = "Error for %s" % self.printParams(paramSet),
+                        color = self.gr.getColor(str(paramSet)), alpha = self.alpha)
+                self.gr.hold = True
+        self.gr.decorate(g_xlabel = self.printVariables(variables),
                          g_ylabel = "Std deviation",
                          g_grid = True,
                          g_title = self.wrapTitle(
@@ -1190,46 +1184,37 @@ class SetPlotter(Plotter):
         # self.gr.yscale('log')
 
         self.gr.draw()
+        return plot
 
     def graphTotalFMeasure(self, grapher = None, variables = None, parameters = None, grouping = None, parameterSetSelection = None):
         if grapher is None or variables is None:
             return
-        variable = variables.keys()[0]
-
+        log.output("Making new graph Total FMeasure with variables : %s, parameters : %s, grouping : %s\n" % (
+            self.printVariables(variables), self.printParams(parameters), self.printParams(grouping)))
+        plot = False
         paramSets = self.getParamSet(parameters)
         if callable(parameterSetSelection):
             paramSets = parameterSetSelection(paramSets)
         # plot Fmeasure
         for paramSet in paramSets:
             selector = dict(grouping.items() + paramSet.items())
-            x, fmeasure = self.getFMeasure(variable, selector)
-            grapher(x, fmeasure,
-                    marker = self.gr.getMarker(),
-                    label = "Fmeasure for %s" % self.printParams(paramSet),
-                    color = self.gr.getColor(str(paramSet)), alpha = self.alpha)
-            self.gr.hold = True
-        self.gr.decorate(g_xlabel = variable,
+            x, fmeasure = self.getFMeasure(variables, selector)
+            if len(x) > 0:
+                self.jitter(x)
+                plot = True
+                grapher(x, fmeasure,
+                        marker = self.gr.getMarker(),
+                        label = "Fmeasure for %s" % self.printParams(paramSet),
+                        color = self.gr.getColor(str(paramSet)), alpha = self.alpha)
+                self.gr.hold = True
+        self.gr.decorate(g_xlabel = self.printVariables(variables),
                          g_ylabel = "Fmeasure",
                          g_grid = True,
                          g_title = self.wrapTitle("Fmeasure for %s with %s" % (self.printVariables(variables), self.printParams(grouping))))
         self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
 
         self.gr.draw()
-
-    def getGreys(self, variable, selector):
-
-        d = self.np.array([
-                              [exp['parameters'][variable] for exp in self.data if self.selectParams(exp, selector)],
-                              [float(len(exp['grey'])) / exp['totalTestedProbes'] for exp in self.data if self.selectParams(exp, selector)],
-                              [float(len(exp['grey'])) / exp['totalProbes'] for exp in self.data if self.selectParams(exp, selector)]
-                          ],
-        )
-
-        self.sort(d)
-        x = d[0]
-        y1 = d[1]
-        y2 = d[2]
-        return x, y1, y2
+        return plot
 
     def scatterGrey(self, **args):
         self.graphGrey(grapher = self.gr.scatter, **args)
@@ -1237,53 +1222,30 @@ class SetPlotter(Plotter):
     def graphGrey(self, grapher = None, variables = None, parameters = None, grouping = None, parameterSetSelection = None):
         if grapher is None or variables is None:
             return
-        variable = variables.keys()[0]
-
+        log.output("Making new graph Grey probes with variables : %s, parameters : %s, grouping : %s\n" % (
+            self.printVariables(variables), self.printParams(parameters), self.printParams(grouping)))
+        plot = False
         paramSets = self.getParamSet(parameters)
         if callable(parameterSetSelection):
             paramSets = parameterSetSelection(paramSets)
         # plot all combination of parameters
         for paramSet in paramSets:
             selector = dict(grouping.items() + paramSet.items())
-            x, y1, y2 = self.getGreys(variable, selector)
-            grapher(x, y1, marker = 'd', label = 'grey probes' + self.printParams(paramSet),
-                    color = self.gr.getColor(str(paramSet)), alpha = self.alpha)
-            self.gr.hold = True
+            x, y1, y2 = self.getGreys(variables, selector)
+            if len(x) > 0:
+                plot = True
+                grapher(x, y1, marker = 'd', label = 'grey probes' + self.printParams(paramSet),
+                        color = self.gr.getColor(str(paramSet)), alpha = self.alpha)
+                self.gr.hold = True
 
-        self.gr.decorate(g_xlabel = variable,
+        self.gr.decorate(g_xlabel = self.printVariables(variables),
                          g_ylabel = 'Ratio of grey probes',
                          g_grid = True,
                          g_title = self.wrapTitle(
                              "Ratio of grey probes (gp/testedProbes) for %s with %s" % (self.printVariables(variables), self.printParams(grouping))))
         self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
         self.gr.draw()
-
-
-    def getTotalPrecisionAndRecall(self, variable, selector):
-
-        d = self.np.array([
-            [exp['parameters'][variable] for exp in self.data if self.selectParams(exp, selector)],
-            [exp['precisionAndRecall']['total']['precision'] for exp in self.data if self.selectParams(exp, selector)],
-            [exp['precisionAndRecall']['total']['recall'] for exp in self.data if self.selectParams(exp, selector)]
-        ])
-        d = self.sort(d)
-        x = d[0]
-        precision = d[1]
-        recall = d[2]
-        return x, precision, recall
-
-    def getPrecisionAndRecall(self, variable, selector, color):
-
-        d = self.np.array([
-            [exp['parameters'][variable] for exp in self.data if self.selectParams(exp, selector)],
-            [exp['precisionAndRecall'][color]['precision'] for exp in self.data if self.selectParams(exp, selector)],
-            [exp['precisionAndRecall'][color]['recall'] for exp in self.data if self.selectParams(exp, selector)]
-        ])
-        d = self.sort(d)
-        x = d[0]
-        precision = d[1]
-        recall = d[2]
-        return x, precision, recall
+        return plot
 
 
 if __name__ == "__main__":
