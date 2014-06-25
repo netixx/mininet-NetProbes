@@ -160,7 +160,7 @@
             "unaffected_check" : [["h1", "h2"]]
 	    },
 	    {
-	        "name" : "bw",
+	        "name" : "bw_htb",
 	        "variations" : {
 	            "bw" : {
 	                "targets" : {
@@ -168,6 +168,38 @@
                     },
                     "options" : {
                         "sample_number" : 20
+                    }
+                }
+	        },
+	        "affected_check" : [["h1", "h7"], ["h2", "h6"]],
+            "unaffected_check" : [["h1", "h2"]]
+	    },
+	    {
+	        "name" : "bw_tbf",
+	        "variations" : {
+	            "bw" : {
+	                "targets" : {
+	                    "l11" : {"steps" : [100, 10, 1, 0.1]}
+                    },
+                    "options" : {
+                        "sample_number" : 20,
+                        "use_tbf" : True
+                    }
+                }
+	        },
+	        "affected_check" : [["h1", "h7"], ["h2", "h6"]],
+            "unaffected_check" : [["h1", "h2"]]
+	    },
+	    {
+	        "name" : "bw_hfsc",
+	        "variations" : {
+	            "bw" : {
+	                "targets" : {
+	                    "l11" : {"steps" : [100, 10, 1, 0.1]}
+                    },
+                    "options" : {
+                        "sample_number" : 20,
+                        "use_hfsc" : True
                     }
                 }
 	        },
