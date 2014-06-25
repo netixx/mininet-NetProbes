@@ -74,7 +74,9 @@ class Bandwidth(object):
     _SAMPLE_WAIT = 0.01
 
     DEFAULT_OPTIONS = {
-        'sample_number': 20
+        'sample_number': 20,
+        'use_hfsc' : False,
+        'use_tbf' : False
     }
 
     def __init__(self, net = None, affected_check = None, unaffected_check = None,
@@ -219,10 +221,12 @@ class Bandwidth(object):
     def _makeEvent(self, delay, target):
         events.runEvent(self.__getEvent(delay, target), self.net)
 
-    @staticmethod
-    def __getEvent(bw, target = 'l11'):
+    def __getEvent(self, bw, target = 'l11'):
         return events.NetEvent(target = target,
-                               variations = {'bw': bw})
+                               variations = {'bw': bw,
+                                             'use_hfsc': self.options['use_hfsc'],
+                                             'use_tbf': self.options['use_tbf']
+                               })
 
     def _resetEvent(self, target = 'l11'):
         events.resetTarget(self.net.get(target))
