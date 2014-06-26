@@ -45,7 +45,7 @@ class _PyplotGraph(type):
         if g_xtickslab:
             ax.set_xticklabels(g_xtickslab)
 
-import collections
+import collections, random
 class Graph(object):
     """Properties for making graphs and interface to graph object"""
     __metaclass__ = _PyplotGraph
@@ -54,10 +54,10 @@ class Graph(object):
               'cadetblue', 'chartreuse', 'chocolate', 'coral', 'cornflowerblue', 'crimson',
               'darkblue', 'darkcyan', 'darkgrey', 'darkgreen', 'darkslateblue', 'darkgoldenrod', 'darkturquoise',
               'deeppink', 'dodgerblue', 'firebrick', 'forestgreen', 'fuchsia', 'green', 'greenyellow', 'hotpink',
-              'indianred', 'indigo', 'lightseagreen', 'limegreen', 'maroon', 'mediumaquamarine', 'mediumblue',
-              'mediumvioletred', 'navy', 'olive', 'orange', 'orangered', 'orchid', 'purple', 'royalblue',
+              'indianred', 'indigo', 'lightseagreen', 'lightsalmon', 'lightyellow', 'limegreen', 'maroon', 'mediumaquamarine', 'mediumblue',
+              'mediumvioletred', 'navy', 'olive', 'olivedrab', 'orange', 'orangered', 'orchid', 'purple', 'royalblue',
               'seagreen', 'slateblue','sienna', 'steelblue', 'teal', 'tomato']
-
+    random.shuffle(colors)
     markers = ['^', 'd', 'o', 'v', '>', '<', 'p', 's', '*']
 
     @classmethod
@@ -129,7 +129,7 @@ class D3Graph(object):
               'cadetblue', 'chartreuse', 'chocolate', 'coral', 'cornflowerblue', 'crimson',
               'darkblue', 'darkcyan', 'darkgrey', 'darkgreen', 'darkslateblue', 'darkgoldenrod', 'darkturquoise',
               'deeppink', 'dodgerblue', 'firebrick', 'forestgreen', 'fuchsia', 'green', 'greenyellow', 'hotpink',
-              'indianred', 'indigo', 'lightseagreen', 'limegreen', 'maroon', 'mediumaquamarine', 'mediumblue',
+              'indianred', 'indigo', 'lightseagreen', 'lightsalmon', 'limegreen', 'maroon', 'mediumaquamarine', 'mediumblue',
               'mediumvioletred', 'navy', 'olive', 'orange', 'orangered', 'orchid', 'purple', 'royalblue',
               'seagreen', 'slateblue', 'sienna', 'steelblue', 'teal', 'tomato']
 
