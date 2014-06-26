@@ -185,7 +185,7 @@ class Bandwidth(object):
     def __getSamples(self, step, pairs, method, **options):
         info("& Getting samples : ")
         if step < 1:
-            options['bw'] = "%sK" % step * 1000
+            options['bw'] = "%sK" % (step * 1000)
         elif 1 <= step < 1000:
             options['bw'] = "%sM" % step
         elif step >= 1000:
