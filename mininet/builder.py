@@ -478,7 +478,7 @@ def start(net):
     rootnode = tools.connectToInternet(net)
     lg.info("Ips are as follows :\n")
     for host in net.hosts:
-        lg.info("%s,%s\n", host.name, host.IP())
+        lg.info("%s,%s\n"%(host.name, host.IP()))
     return rootnode
 
 
