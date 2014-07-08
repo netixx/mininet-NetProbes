@@ -6,6 +6,7 @@
     Example are given in the data folder.
 """
 
+import signal
 from os import getuid
 import os
 from argparse import ArgumentParser
@@ -277,25 +278,84 @@ class CustomMininet(Mininet):
 
 
 # Use for routers
-# class POX(Controller):
-# def __init__(self, name, cdir = None,
-# command = 'python pox.py',
-# cargs = ('openflow.of_01 --port=%s '
-# 'forwarding.l2_learning'),
-# **kwargs):
-# Controller.__init__(self, name, cdir = cdir,
-#                              command = command,
-#                              cargs = cargs, **kwargs)
-#
+from mininet.node import Controller
+
+POXDIR = os.environ['HOME'] + '/pox'
+BEACON_EXEC = os.environ['HOME'] + '/beacon-1.0.4/beacon'
+FLOODLIGHT_EXEC = os.environ['HOME'] + '/floodlight/floodlight.sh'
+
+
+class KillController(Controller):
+    def terminate(self):
+        # print "shell", self.shell
+        # lg.error(self.shell)
+        # Controller.terminate(self)
+        os.killpg(self.pid, signal.SIGKILL)
+        self.cleanup()
+
+class POX(Controller):
+    def __init__(self, name, cdir = POXDIR,
+                 command = 'python pox-debug.py',
+                 # cargs = ('openflow.of_01 --port=%s forwarding.l2_learning'),
+                 cargs = 'forwarding.l2_learning openflow.of_01 --port=%s',
+                 **kwargs):
+        Controller.__init__(self, name, cdir = cdir,
+                            command = command,
+                            cargs = cargs, **kwargs)
+
+class POXRouter(Controller):
+    def __init__(self, name, cdir = POXDIR,
+                 command = 'python pox-debug.py',
+                 # cargs = ('openflow.of_01 --port=%s forwarding.l2_learning'),
+                 cargs = 'forwarding.l3_learning openflow.of_01 --port=%s',
+                 **kwargs):
+
+        Controller.__init__(self, name, cdir = cdir,
+                            command = command,
+                            cargs = cargs, **kwargs)
+
+
+class Beacon(KillController):
+    def __init__(self, name, cdir = None,
+                 command = BEACON_EXEC,
+                 # cargs = ('openflow.of_01 --port=%s forwarding.l2_learning'),
+                 cargs = "--port %s",
+                 **kwargs):
+        Controller.__init__(self, name, cdir = cdir,
+                            command = command,
+                            cargs = cargs, **kwargs)
+        # self.shell = True
+
+
+class Floodlight(KillController):
+    def __init__(self, name, cdir = None,
+                 command = FLOODLIGHT_EXEC,
+                 # cargs = ('openflow.of_01 --port=%s forwarding.l2_learning'),
+                 cargs = "--port %s",
+                 **kwargs):
+        self.shell = True
+        Controller.__init__(self, name, cdir = cdir,
+                            command = command,
+                            cargs = cargs, **kwargs)
+        self.shell = True
+
+
+controllers = {
+    'nox': Controller,
+    'beacon': Beacon,
+    'pox': POX,
+    'floodlight': Floodlight,
+    'poxroute' : POXRouter
+}
 # class MultiSwitch(OVSSwitch):
-#     "Custom Switch() subclass that connects to different controllers"
-#     def start(self, controllers):
-#         return OVSSwitch.start(self, [ cmap[ self.name ] ])
+# "Custom Switch() subclass that connects to different controllers"
+# def start(self, controllers):
+# return OVSSwitch.start(self, [ cmap[ self.name ] ])
 #
 # topo = TreeTopo(depth = 2, fanout = 2)
 # net = Mininet(topo = topo, switch = MultiSwitch, build = False)
 # for c in [ c0, c1 ]:
-#     net.addController(c)
+# net.addController(c)
 # net.build()
 # net.start()
 # CLI(net)
@@ -322,54 +382,63 @@ def runCommand(host):
 
 def interract_once(net):
     import interract
+
     if args.watcher_start_event or args.watcher_post_event or args.watcher_probe:
         interract.wait_start_events(args.watcher_start_event)
 
         interract.post_events(net, netprobes, args.watcher_post_event)
 
         if args.watcher_probe is not None:
-            interract.wait_process(netprobes[args.watcher_probe])
+            # interract.wait_process(netprobes[args.watcher_probe])
+            interract.wait_reset(args.watcher_reset_event)
             interract.make_watcher_results(args.watcher_log, args.watcher_output, vars.topoFile)
 
-# def interract_mul(net):
-#     import interract
-#
-#     try:
-#         p = ArgumentParser()
-#         p.add_argument("--vars",
-#                        dest = 'vars',
-#                        default = [],
-#                        action = 'append',
-#                        help = 'Pass variables to the emulation')
-#         for sim in args.simulations:
-#             #parse parameters for this simulation
-#             simargs = p.parse_args(shlex.split(sim))
-#             interract.wait_start_events(args.watcher_start_event)
-#
-#             if args.watcher_probe is not None:
-#                 interract.wait_file()
-#                 interract.make_watcher_results(args.watcher_log, args.watcher_output, vars.topoFile)
-#     except (Exception, SystemExit) as e:
-#         lg.error(e)
+
+def interract_mul(net):
+    import interract
+
+    if args.watcher_wait_up is not None:
+        interract.wait_file(args.watcher_wait_up)
+    try:
+        for simargs in args.simulations:
+            # parse parameters for this simulation
+            if args.sim_prepend is not None:
+                pre = args.sim_prepend.format(sim = "'%s'" % simargs)
+            else:
+                pre = simargs
+            interract.pre_events(net, netprobes, pre)
+
+            interract.wait_start_events(args.watcher_start_event)
+
+            interract.post_events(net, netprobes, args.watcher_post_event)
+
+            interract.wait_reset(args.watcher_reset_event)
+            interract.make_watcher_results(args.watcher_log, args.watcher_output, vars.topoFile)
+
+    except (Exception, SystemExit) as e:
+        lg.error(e)
 
 
 def interract(net):
-    lg.output('Started automatic interaction process\n')
-    # if len(args.simulations) > 0:
-    #     interract_mul(net)
-    #     return
+    if len(args.simulations) > 0:
+        lg.output("Start automatic multiple interaction process\n")
+        interract_mul(net)
+        return
     if args.watcher_start_event or args.watcher_post_event or args.watcher_probe:
+        lg.output('Started automatic interaction process\n')
         interract_once(net)
         return
-    else:
-        return CLI(net)
+
+    return CLI(net)
 
 
-def runTopo(topoFile, simParams, hostOptions, checkLevel):
+def runTopo(topoFile, simParams, hostOptions, checkLevel, controller):
     topo = CustomTopo(topoFilePath = topoFile, simParams = simParams, hostOptions = hostOptions)
     if checkLevel > 1:
         topo.setNetOption('link', TCLink)
-    net = CustomMininet(topo = topo, **topo.getNetOptions())
+    # net = CustomMininet(topo = topo, controller = Beacon, autoSetMacs = True, **topo.getNetOptions())
+    # net = CustomMininet(topo = topo, controller = Beacon, **topo.getNetOptions())
+    net = CustomMininet(topo = topo, controller = controller, **topo.getNetOptions())
     global netprobes
     netprobes = collections.OrderedDict()
     try:
@@ -432,7 +501,7 @@ def runTopo(topoFile, simParams, hostOptions, checkLevel):
             monitor.writeSummary(monitor_file, counter)
     finally:
         stop(net)
-        #cleanup !
+        # cleanup !
         lg.info("Stopping remaining processes...\n")
         kill = 0
         for name, probe in netprobes.iteritems():
@@ -448,7 +517,7 @@ def runTopo(topoFile, simParams, hostOptions, checkLevel):
                         probe.terminate()
                         time.sleep(0.001)
                     except OSError as e:
-                        lg.error("Failed to terminate %s : %s\n"%(name, e))
+                        lg.error("Failed to terminate %s : %s\n" % (name, e))
             time.sleep(3)
             for name, probe in netprobes.iteritems():
                 if probe.poll() is None:
@@ -456,7 +525,7 @@ def runTopo(topoFile, simParams, hostOptions, checkLevel):
                         lg.info("Send kill signal to %s\n" % name)
                         probe.kill()
                     except OSError as e:
-                        lg.error("Failed to kill %s : %s\n"%(name, e))
+                        lg.error("Failed to kill %s : %s\n" % (name, e))
         lg.output("\nAll done\n")
 
 
@@ -474,11 +543,11 @@ def startXterm(net):
 
 def start(net):
     # net.start()
-    #does start for us
+    # does start for us
     rootnode = tools.connectToInternet(net)
     lg.info("Ips are as follows :\n")
     for host in net.hosts:
-        lg.info("%s,%s\n"%(host.name, host.IP()))
+        lg.info("%s:%s\n" % (host.name, host.IP()))
     return rootnode
 
 
@@ -530,11 +599,11 @@ if __name__ == '__main__':
                         dest = "show_command_output",
                         action = 'store_true',
                         default = False)
-    #emulation options
+    # emulation options
     parser.add_argument("--topo",
                         dest = 'tfile',
                         help = 'Topology to load for this simulation',
-                        default = 'flat')
+                        default = os.path.join(DIR, 'data/flat.json'))
 
     parser.add_argument("--vars",
                         dest = 'vars',
@@ -607,6 +676,10 @@ if __name__ == '__main__':
                         dest = 'watcher_probe',
                         default = None)
 
+    parser.add_argument('--watcher-wait-up',
+                        dest = 'watcher_wait_up',
+                        default = None)
+
     parser.add_argument('--watcher-start-event',
                         dest = 'watcher_start_event',
                         default = None)
@@ -615,11 +688,18 @@ if __name__ == '__main__':
                         dest = "watcher_post_event",
                         default = None)
 
+    parser.add_argument('--watcher-reset-event',
+                        dest = "watcher_reset_event",
+                        default = None)
+
     parser.add_argument('-q', '--quiet',
                         dest = 'quiet',
                         action = 'count',
                         default = 0,
                         help = "Set verbosity.")
+
+    parser.add_argument('--sim-prepend',
+                        dest = 'sim_prepend')
 
     parser.add_argument('--sim',
                         dest = 'simulations',
@@ -627,14 +707,27 @@ if __name__ == '__main__':
                         default = [],
                         help = 'Simulation to perform without restarting network.')
 
+    parser.add_argument('--controller',
+                        choices = controllers.keys(),
+                        default = 'nox')
+    # import sys
+    #
+    # print  sys.argv
+
     args = parser.parse_args()
+
+    #increase file descriptor limits
+    from mininet.util import fixLimits
+
+    fixLimits()
 
     if args.quiet >= 1:
         lg.setLogLevel('output')
     else:
         lg.setLogLevel('info')
 
-    topoFile = os.path.join(DIR, "data", args.tfile + ".json")
+    # topoFile = os.path.join(DIR, "data", args.tfile + ".json")
+    topoFile = args.tfile
     if args.start_time is not None:
         EventsManager.start_time = int(args.start_time)
     # monitorUsage = args.monitorUsage
@@ -656,9 +749,11 @@ if __name__ == '__main__':
             hOpts['command'] = "strace {command}".format(command = hOpts['command'])
     if args.force_x:
         hOpts['isXHost'] = True
+
     vars.topoFile = topoFile
     vars.watcher_output = args.watcher_output
     runTopo(topoFile = topoFile,
             simParams = args.vars,
             hostOptions = hOpts,
-            checkLevel = args.net_check)
+            checkLevel = args.net_check,
+            controller = controllers[args.controller])

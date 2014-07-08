@@ -1,5 +1,6 @@
 from threading import Timer
 from string import Template
+import traceback
 
 from mininet.log import output, error
 
@@ -23,15 +24,6 @@ class EventsManager(object):
             cls.startTimers(delay = cls.start_time)
 
     @classmethod
-    def startTimers(cls, delay = None):
-        if delay:
-            cls.t_start = Timer(delay, cls.startTimers)
-            cls.t_start.start()
-            return
-        for event in cls.events:
-            event.timerRun.start()
-
-    @classmethod
     def stopClock(cls):
         for event in cls.events:
             try:
@@ -41,19 +33,53 @@ class EventsManager(object):
                 pass
 
     @classmethod
-    def sheduleEvent(cls, event):
-        event.id = len(cls.events)
+    def startTimers(cls, delay = None):
+        if delay:
+            cls.t_start = Timer(delay, cls.startTimers)
+            cls.t_start.start()
+            return
+        for event in cls.events:
+            event.timerRun.start()
+
+    @classmethod
+    def stopEvents(cls):
+        output("Stopping events\n")
+        for event in cls.events:
+            try:
+                event.timerRun.cancel()
+                event.timerReset.cancel()
+            except:
+                pass
+            stopEvent(cls.network.get(event.target), event)
+            # event.timerReset.finished.set()
+            # event.timerReset.join()
+            cls._newEvent(event)
+
+    @classmethod
+    def _newPeriodicEvent(cls, event):
+        event.timerRun = Timer(0.0, runPeriodicEvent, args = [event, cls.d_network])
+        output('* Event %s : Periodic event on equipment %s:\n > duration %s\n > period %s \n > modifying parameters : %s\n-------\n'
+               % (event.id, event.target, event.duration, event.repeat, ", ".join("%s:%s" % (k, v) for k, v in event.variations.iteritems())))
+
+    @classmethod
+    def _newSingleEvent(cls, event):
+        event.timerRun = Timer(0.0, runEvent, args = [event, cls.d_network])
+        output('* Event %s : Event on equipment %s\n > duration %s\n > modifying parameters : %s\n-------\n'
+               % (event.id, event.target, event.duration, ", ".join("%s:%s" % (k, v) for k, v in event.variations.iteritems())))
+
+    @classmethod
+    def _newEvent(cls, event):
         # global timers
         if event.repeat is not None:
-            event.timerRun = Timer(0.0, runPeriodicEvent, args = [event, cls.d_network])
-            cls.events.append(event)
-            output('* Event %s : Scheduled periodic event on equipment %s:\n > duration %s\n > period %s \n > modifying parameters : %s\n-------\n'
-                   % (event.id, event.target, event.duration, event.repeat, ", ".join("%s:%s" % (k, v) for k, v in event.variations.iteritems())))
+            cls._newPeriodicEvent(event)
         else:
-            event.timerRun = Timer(0.0, runEvent, args = [event, cls.d_network])
-            cls.events.append(event)
-            output('* Event %s : Scheduled event on equipment %s\n > duration %s\n > modifying parameters : %s\n-------\n'
-                   % (event.id, event.target, event.duration, ", ".join(event.variations.keys())))
+            cls._newSingleEvent(event)
+
+    @classmethod
+    def sheduleEvent(cls, event):
+        event.id = len(cls.events)
+        cls._newEvent(event)
+        cls.events.append(event)
 
     @classmethod
     def d_network(cls):
@@ -86,6 +112,7 @@ def resetTarget(target):
         target.reset()
     except Exception as e:
         error("Error while resetting event on %s : %s" % (target.name, e))
+        error(traceback.format_exc())
 
 
 def runPeriodicEvent(event, net):
@@ -102,7 +129,8 @@ def replaceParams(event, params):
         if type(val) is dict:
             replaceParams(val, params)
             continue
-        event[key] = Template(event[key]).substitute(**params)
+        if type(event[key]) in (str, buffer, unicode):
+            event[key] = Template(event[key]).substitute(**params)
 
 
 class NetEvent(object):

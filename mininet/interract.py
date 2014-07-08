@@ -1,6 +1,7 @@
 import time
 import os
 import shlex
+import traceback
 
 from events import EventsManager
 import mininet.log as lg
@@ -14,10 +15,17 @@ def wait_start_events(watcher_start_event = None):
 
 
 def wait_file(file):
-    lg.output("Waiting for signal on %s to start events\n" % file)
+    lg.output("Waiting for signal on %s to proceed\n" % file)
     while not os.path.exists(file):
-        time.sleep(10)
+        time.sleep(8)
     os.remove(file)
+
+
+def wait_reset(watcher_reset_event = None):
+    if watcher_reset_event is not None:
+        wait_file(watcher_reset_event)
+        EventsManager.stopEvents()
+        time.sleep(5)
 
 
 def post_events(net, netprobes, watcher_post_event = None):
@@ -36,6 +44,24 @@ def post_events(net, netprobes, watcher_post_event = None):
         lg.output("Running post command (%s)\n" % " ".join(rcmd))
         p = subprocess.Popen(shlex.split(" ".join(rcmd)))
         p.communicate()
+
+def pre_events(net, netprobes, watcher_pre_event = None):
+    if watcher_pre_event is not None:
+        lg.output("Executing pre event actions '%s'\n" % watcher_pre_event)
+        import subprocess
+
+        cmd = watcher_pre_event.split(" ")
+        rcmd = []
+        # replace name with ips
+        for c in cmd:
+            if netprobes.has_key(c):
+                rcmd.append(net.nameToNode[c].IP())
+            else:
+                rcmd.append(c)
+        lg.output("Running pre command (%s)\n" % " ".join(rcmd))
+        p = subprocess.Popen(shlex.split(" ".join(rcmd)))
+        p.communicate()
+
 
 
 def wait_process(process):
@@ -58,9 +84,13 @@ def make_watcher_results(watcher_log, watcher_output, topoFile):
             lg.error("No log file was found in %s\n" % watcher_log)
     if watcher_output is not None:
         if os.path.exists(watcher_output):
-            import watcher_delay
 
-            watcher_delay.appendResults(watcher_delay.makeResults(watcher_output, topoFile))
+            import watcher_delay
+            try:
+                watcher_delay.appendResults(watcher_delay.makeResults(watcher_output, topoFile))
+            except Exception as e:
+                lg.error("Error while processing results %s\n"%e)
+                lg.error(traceback.format_exc())
             # prevent results from being processed twice
             os.rename(watcher_output, 'watchers/output/%s.json' % now)
         else:
