@@ -3,6 +3,8 @@
 import json
 import textwrap
 import collections
+import math
+import itertools
 
 import networkx as nx
 
@@ -25,10 +27,14 @@ def _buildGraph(topo):
 
 
 def _connectGraph(g, topo, edges):
+    r = {}
     for e in topo['links']:
         if e['name'] in edges:
             g.add_edge(*e['hosts'], name = e['name'])
+            r[e['name']] = e['hosts']
             # g.add_edges_from(e['hosts'] for e in topo['links'] if e['name'] in edges)
+
+    return r
 
 
 def _setMatches(watcherSets, graphSets, watcherPoint):
@@ -115,7 +121,94 @@ def _recall(watcherSet, graphSet):
     return float(len(set(watcherSet) & set(graphSet))) / len(graphSet)
 
 
-def _getRecallAndPrecision(matches, watcher):
+def _true_pos(white, good):
+    return len(set(white) & set(good))
+
+
+def _true_neg(black, bad):
+    return len(set(black) & set(bad))
+
+
+def _false_neg(black, good):
+    return len(set(black) & set(good))
+
+
+def _false_pos(white, bad):
+    return len(set(white) & set(bad))
+
+
+# def _conf_matrix(matches, watcher):
+#     mat = []
+#     for color, part in matches.iteritems():
+#         waAddrs = [p['address'] for p in watcher[color]['hosts']]
+#         mat.append([waAddrs, part])
+#
+#     white = mat[0][0]
+#     good = mat[0][1]
+#     black = mat[1][0]
+#     bad = mat[1][1]
+#
+#     tp = _true_pos(white, good)
+#     tn = _true_neg(black, bad)
+#     fn = _false_neg(black, good)
+#     fp = _false_pos(white, bad)
+#
+#     return tp, tn, fp, fn
+
+
+def nCk(n, k):
+    f = math.factorial
+    return f(n) / f(k) / f(n - k)
+
+
+def _rand_index(matches, watcher):
+    a = 0
+    b = 0
+    c = 0
+    d = 0
+    wa = [[p['address'] for p in watcher[color]['hosts']] for color in matches.iterkeys()]
+    #remove probe that are not in the watcher set
+    gt = [p for g in matches.itervalues() for p in g if any(p in w for w in wa)]
+    S = itertools.chain(*gt)
+
+    # add rest of the world
+    # wa.append([p for g in gt for p in g if not any(p in w for w in wa)])
+
+    t = 0
+    for pair in itertools.combinations(S, 2):
+        t+= 1
+        sameWa = False
+        sameGt = False
+        for w in wa:
+            if pair[0] in w and pair[1] in w:
+                # pair in in same set for watcher
+                sameWa = True
+                break
+        for g in gt:
+            if pair[0] in g and pair[1] in g:
+                # pair is in same set for ground truth
+                sameGt = True
+                break
+        # each elements of the pair belong to the same set in both partitions
+        # print pair, sameWa, sameGt
+        if sameWa and sameGt:
+            a += 1
+        #each element of the pair belong to the different sets in both partitions
+        elif not sameWa and not sameGt:
+            b += 1
+        elif sameWa and not sameGt:
+            c += 1
+        elif not sameWa and sameGt:
+            d += 1
+
+    # return (a + b) / nCk(len(S), 2)
+    if d != t:
+        raise Exception("Error in rand measure")
+    d = float(a + b + c + d)
+    return (a + b) / d if d != 0 else 0
+
+
+def _getSetMetrics(matches, watcher):
     stats = {}
     l = 0.0
     for color, part in matches.iteritems():
@@ -131,6 +224,18 @@ def _getRecallAndPrecision(matches, watcher):
 
     a = (stats['total']['precision'] + stats['total']['recall'])
     stats['Fmeasure'] = 2 * stats['total']['precision'] * stats['total']['recall'] / a if a > 0 else 0
+
+    stats['randindex'] = _rand_index(matches, watcher)
+
+    # if len(matches) == 2:
+    #     tp, tn, fp, fn = _conf_matrix(matches, watcher)
+    #     print 'tp,tn,fp,fn',tp, tn, fp, fn
+    #     stats['accuracy'] = float(tp + tn) / float(tp + tn + fp + fn)
+    #     # stats['mcc'] = float(tp * tn - fp * fn) / math.sqrt((tp + fp) * (fp + fn) * (tn + fp) * (tn + fn))
+    #     stats['binRecall'] = tp / float(tp + fn)
+    #     stats['binPrecision'] = tp / float(tp + fp)
+    #     stats['binFmeasure'] = 2 * tp / float(2 * tp + fp + fn)
+    # print 'fm', stats['Fmeasure'], 'rand', stats['randindex']
     return stats
 
 
@@ -145,12 +250,28 @@ def makeResults(watcher_output, topoFile):
     topoGraph, tLinks = _buildGraph(topo)
     watcher = json.load(open(watcher_output))
     out = watcher
-    _makeSetResults(watcher, topoGraph, out, nameToIp)
-    _connectGraph(topoGraph, topo, tLinks)
-    _makeLinkResults(watcher, topoGraph, out, ipToName, nameToIp)
+    try:
+        _makeSetResults(watcher, topoGraph, out, nameToIp)
+        thosts = _connectGraph(topoGraph, topo, tLinks)
+        _makeLinkResults(watcher, topoGraph, out, ipToName, nameToIp)
+        out['tlinkswdep'] = _depth_links(topoGraph, thosts)
+    except:
+        raise
+
+    out['parameters']['depth'] = out['tlinkswdep'][0][0]
     out['tlinks'] = tLinks
     out['topoFile'] = topoFile
     return out
+
+def _depth_links(topoGraph, tlinks, root = 's1'):
+    l = []
+    for link, hosts in tlinks.iteritems():
+        l.append((_link_depth(topoGraph, hosts, root), link))
+
+    return l
+
+def _link_depth(topoGraph, link, root):
+    return max(len(nx.shortest_path(topoGraph, source = root, target = h)) for h in link)
 
 
 def _makeLinkResults(watcher, topoGraph, out, ipToName, nameToIp):
@@ -191,8 +312,10 @@ def _makeSetResults(watcher, topoGraph, out, nameToIp):
 
     matches = _setMatches(watcher['sets'], parts, nameToIp[watcher['watcher']])
 
-    precisionAndRecall = _getRecallAndPrecision(matches, watcher['sets'])
-    out['precisionAndRecall'] = precisionAndRecall
+    setMetrics = _getSetMetrics(matches, watcher['sets'])
+    # for backward compatibility
+    out['precisionAndRecall'] = setMetrics
+    out['setStatistics'] = setMetrics
     out['graph'] = parts
     out['totalProbes'] = sum(len(part) for part in parts)
     out['totalTestedProbes'] = sum(len(se['hosts']) for se in watcher['sets'].values()) + len(watcher['grey'])
@@ -232,6 +355,7 @@ def ge1(parameterSet):
 
     return ps
 
+
 def makeGraphs(results, plotPath = PLOT_PATH):
     pp = plotPath.replace(".pdf", "")
     log.output("Making new graph at %s\n" % pp)
@@ -252,8 +376,8 @@ def makeGraphs(results, plotPath = PLOT_PATH):
 
 def makeGraphsLinks(plotter):
     metricSet = 0, 1
-    bucketSet = 'probabilistic-bucket', 'ordered-bucket'
-    selectionSet = ge1, #exclusive,  # None
+    bucketSet = 'probabilistic-bucket', 'ordered-bucket', 'probabilistic-power-bucket'
+    selectionSet = ge1,  # exclusive,  # None
     sampleSizeSet = 0.1, 0.2, 0.3
     granularitySet = 1, 4
 
@@ -277,7 +401,7 @@ def makeGraphsLinks(plotter):
 
     selectionMethods = (
         max,
-        percent99,
+        # percent99,
         std,
         std2,
         # stdy,
@@ -348,8 +472,8 @@ def makeGraphsLinks(plotter):
 def makeGraphsGranularitySampleSize(plotter):
     granularitySet = 1, 4
     metricSet = 0, 1
-    selectionSet = ge1, #exclusive,  # None
-    bucketSet = 'probabilistic-bucket', 'ordered-bucket'
+    selectionSet = ge1,  # exclusive,  # None
+    bucketSet = 'probabilistic-bucket', 'ordered-bucket', 'probabilistic-power-bucket'
     # length of grey, precision + recall (per set and total) wrt delay variation
     # length of grey, precision + recall (per set and total) wrt granularity
 
@@ -638,7 +762,7 @@ class LinkPlotter(Plotter):
                 err.append(std / m if m > 0 else 0)
             if len(x) < 1:
                 return
-            self.gr.subplot(2, 1, 1)
+            self.gr.subplot(3, 1, 1)
             x = self.np.array(x)
             self.jitter(x)
             self.gr.errorbar(x, self.np.array(y), yerr = self.np.array(dev),
@@ -647,15 +771,22 @@ class LinkPlotter(Plotter):
                              color = self.gr.getColor(stp), alpha = self.alpha
             )
             self.gr.hold = True
-            self.gr.subplot(2, 1, 2)
+            self.gr.subplot(3, 1, 2)
             self.gr.plot(x, self.np.array(err),
                          marker = self.gr.getMarker(stp),
                          label = stp,
                          color = self.gr.getColor(stp), alpha = self.alpha
             )
             self.gr.hold = True
+            self.gr.subplot(3, 1, 3)
+            self.gr.plot(x, self.np.array(dev),
+                         marker = self.gr.getMarker(stp),
+                         label = stp,
+                         color = self.gr.getColor(stp), alpha = self.alpha
+            )
+            self.gr.hold = True
 
-        self.gr.subplot(2, 1, 1)
+        self.gr.subplot(3, 1, 1)
         self.setMargins()
         self.gr.decorate(g_xlabel = self.printVariables(variables),
                          g_ylabel = "Metric",
@@ -663,12 +794,21 @@ class LinkPlotter(Plotter):
                          g_title = self.wrapTitle("Aggregated metrics for %s with %s" % (self.printVariables(variables), self.printParams(grouping))))
         self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
 
-        self.gr.subplot(2, 1, 2)
+        self.gr.subplot(3, 1, 2)
         self.setMargins()
         self.gr.decorate(g_xlabel = self.printVariables(variables),
                          g_ylabel = "Error",
                          g_grid = True,
                          g_title = self.wrapTitle("Aggregated error (avg(std)/avg(metrics)) for %s with %s" % (
+                             self.printVariables(variables), self.printParams(grouping))))
+        self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
+
+        self.gr.subplot(3, 1, 3)
+        self.setMargins()
+        self.gr.decorate(g_xlabel = self.printVariables(variables),
+                         g_ylabel = "Std deviation",
+                         g_grid = True,
+                         g_title = self.wrapTitle("Aggregated error (avg(std)) for %s with %s" % (
                              self.printVariables(variables), self.printParams(grouping))))
         self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
 
@@ -854,6 +994,28 @@ class SetPlotter(Plotter):
         err = d[2]
         return x, fmeasure, err
 
+    def getAvgRandIndex(self, variables, selector):
+        variable = variables.keys()[0]
+        f = {}
+        for exp in self.data:
+            if self.selectParams(exp, selector):
+                if not f.has_key(exp['parameters'][variable]):
+                    f[exp['parameters'][variable]] = []
+                f[exp['parameters'][variable]].append(exp['setStatistics']['randindex'])
+        x = f.keys()
+        randIndex = [self.np.mean(v) for v in f.values()]
+        stdrandIndex = [self.np.std(v) for v in f.values()]
+        d = self.np.array([
+            x,
+            randIndex,
+            stdrandIndex
+        ])
+        d = self.sort(d)
+        x = d[0]
+        rand = d[1]
+        err = d[2]
+        return x, rand, err
+
     def getFMeasure(self, variables, selector):
         variable = variables.keys()[0]
         d = self.np.array([
@@ -929,7 +1091,7 @@ class SetPlotter(Plotter):
 
         if self.plotPrecisionAndRecall(grouping = grouping, **args):
             fig = self.gr.gcf()
-            fig.set_size_inches(15, 25)
+            fig.set_size_inches(15, 30)
             self.pdf.savefig(bbox_inches = 'tight')
         self.gr.close()
 
@@ -968,8 +1130,12 @@ class SetPlotter(Plotter):
 
     def plotPrecisionAndRecall(self, **args):
         p = []
-        grs = 4
+        grs = 5
         i = 1
+        self.gr.subplot(grs, 1, i)
+        p.append(self.graphAvgRandIndex(**args))
+        self.setMargins()
+        i += 1
         self.gr.subplot(grs, 1, i)
         p.append(self.graphAvgFMeasure(**args))
         self.setMargins()
@@ -986,7 +1152,7 @@ class SetPlotter(Plotter):
         p.append(self.graphTotalRecall(grapher = self.gr.plot, **args))
         self.setMargins()
         i += 1
-        #true if one is true
+        # true if one is true
         return any(item for item in p)
 
 
@@ -1119,6 +1285,38 @@ class SetPlotter(Plotter):
                          g_title = self.wrapTitle(
                              "Per set Recall and precision for %s with %s" % (self.printVariables(variables), self.printParams(grouping))))
         self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
+        return plot
+
+
+    def graphAvgRandIndex(self, variables = None, parameters = None, grouping = None, parameterSetSelection = None):
+        variable = variables.keys()[0]
+        log.output("Making new graph Avg Rand Index with variables : %s, parameters : %s, grouping : %s\n" % (
+            self.printVariables(variables), self.printParams(parameters), self.printParams(grouping)))
+        paramSets = self.getParamSet(parameters)
+        if callable(parameterSetSelection):
+            paramSets = parameterSetSelection(paramSets)
+        plot = False
+        # plot RandIndex
+        for paramSet in paramSets:
+            selector = dict(grouping.items() + paramSet.items())
+            x, rand, yerr = self.getAvgRandIndex(variables, selector)
+            if len(x) > 0:
+                self.jitter(x)
+                plot = True
+                self.gr.errorbar(x, rand,
+                                 yerr = yerr,
+                                 marker = self.gr.getMarker(),
+                                 label = "Rand Index for %s" % self.printParams(paramSet),
+                                 color = self.gr.getColor(str(paramSet)), alpha = self.alpha)
+                self.gr.hold = True
+        self.gr.decorate(g_xlabel = variable,
+                         g_ylabel = "Rand Index",
+                         g_grid = True,
+                         g_title = self.wrapTitle("Avged Rand Index for %s with %s" % (variable, self.printParams(grouping))))
+        self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
+        # self.gr.yscale('log')
+
+        self.gr.draw()
         return plot
 
 
