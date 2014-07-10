@@ -15,8 +15,10 @@ ALL_RESULTS_PATH = 'watchers/watchers.json'
 PLOT_PATH = 'watchers/watchers.pdf'
 
 
-def _buildGraph(topo):
+def _buildGraph(topo, params):
     g = nx.Graph()
+    for e in topo['events']:
+        events.replaceParams(e, params)
     g.add_nodes_from(n['name'] for n in topo['hosts'] + topo['switches'])
     tLinks = [e['target'] for e in topo['events']]
     for e in topo['links']:
@@ -138,7 +140,7 @@ def _false_pos(white, bad):
 
 
 # def _conf_matrix(matches, watcher):
-#     mat = []
+# mat = []
 #     for color, part in matches.iteritems():
 #         waAddrs = [p['address'] for p in watcher[color]['hosts']]
 #         mat.append([waAddrs, part])
@@ -176,7 +178,7 @@ def _rand_index(matches, watcher):
 
     t = 0
     for pair in itertools.combinations(S, 2):
-        t+= 1
+        t += 1
         sameWa = False
         sameGt = False
         for w in wa:
@@ -202,10 +204,10 @@ def _rand_index(matches, watcher):
             d += 1
 
     # return (a + b) / nCk(len(S), 2)
-    if d != t:
-        raise Exception("Error in rand measure")
-    d = float(a + b + c + d)
-    return (a + b) / d if d != 0 else 0
+    den = float(a + b + c + d)
+    if den != t:
+        raise log.error("Error in rand measure")
+    return (a + b) / den if den != 0 else 0
 
 
 def _getSetMetrics(matches, watcher):
@@ -239,7 +241,10 @@ def _getSetMetrics(matches, watcher):
     return stats
 
 
-def makeResults(watcher_output, topoFile):
+import events
+
+
+def makeResults(watcher_output, topoFile, substParams):
     log.output("Making results from %s with topology %s\n" % (watcher_output, topoFile))
     nameToIp = {}
     ipToName = {}
@@ -247,7 +252,7 @@ def makeResults(watcher_output, topoFile):
     for h in topo['hosts']:
         nameToIp[h['name']] = h['options']['ip']
         ipToName[h['options']['ip']] = h['name']
-    topoGraph, tLinks = _buildGraph(topo)
+    topoGraph, tLinks = _buildGraph(topo, substParams)
     watcher = json.load(open(watcher_output))
     out = watcher
     try:
@@ -263,12 +268,14 @@ def makeResults(watcher_output, topoFile):
     out['topoFile'] = topoFile
     return out
 
+
 def _depth_links(topoGraph, tlinks, root = 's1'):
     l = []
     for link, hosts in tlinks.iteritems():
         l.append((_link_depth(topoGraph, hosts, root), link))
 
     return l
+
 
 def _link_depth(topoGraph, link, root):
     return max(len(nx.shortest_path(topoGraph, source = root, target = h)) for h in link)
@@ -363,11 +370,13 @@ def makeGraphs(results, plotPath = PLOT_PATH):
     # from graphs import D3Graph as d3g
 
     linkplotter = LinkPlotter(g, pp + "-link.pdf", results)
-    setplotter = SetPlotter(g, pp + "-set.pdf", results)
+
     try:
         makeGraphsLinks(linkplotter)
     finally:
         linkplotter.close()
+
+    setplotter = SetPlotter(g, pp + "-set.pdf", results)
     try:
         makeGraphsGranularitySampleSize(setplotter)
     finally:
@@ -376,10 +385,11 @@ def makeGraphs(results, plotPath = PLOT_PATH):
 
 def makeGraphsLinks(plotter):
     metricSet = 0, 1
-    bucketSet = 'probabilistic-bucket', 'ordered-bucket', 'probabilistic-power-bucket'
+    bucketType = 'probabilistic-power-bucket'  #,'probabilistic-bucket', 'ordered-bucket'
     selectionSet = ge1,  # exclusive,  # None
-    sampleSizeSet = 0.1, 0.2, 0.3
-    granularitySet = 1, 4
+    sampleSizeSet = 10, 20, 50
+    granularity = 1  #, 4
+    depthSet = range(1, 10)
 
     def max(x):
         return plotter.np.percentile(x, 100)
@@ -408,31 +418,50 @@ def makeGraphsLinks(plotter):
         maxMinus1
     )
     # for selectionMethod in selectionMethods:
+    # for paramSelection in selectionSet:
+    #     for bucketType in bucketSet:
+    #         plotter.plotLinksMetricSelection(
+    #             variables = {
+    #                 'sampleSize': None
+    #             },
+    #             parameters = {
+    #                 'randomMetricWeight': metricSet,
+    #                 'ipMetricWeight': metricSet,
+    #                 'balancedMetricWeight': metricSet,
+    #                 'delayMetricWeight': metricSet,
+    #                 'granularity': granularitySet
+    #             },
+    #             grouping = {
+    #                 'bucket_type': bucketType
+    #             },
+    #             parameterSetSelection = paramSelection,
+    #             electionMethod = selectionMethods
+    #         )
     for paramSelection in selectionSet:
-        for bucketType in bucketSet:
-            plotter.plotLinksMetricSelection(
+        for sampleSize in sampleSizeSet:
+            plotter.plotLinksMetric(
                 variables = {
-                    'sampleSize': [0.05, 1]
+                    'depth': None
                 },
                 parameters = {
                     'randomMetricWeight': metricSet,
                     'ipMetricWeight': metricSet,
                     'balancedMetricWeight': metricSet,
-                    'delayMetricWeight': metricSet,
-                    'granularity': granularitySet
+                    'delayMetricWeight': metricSet
                 },
                 grouping = {
-                    'bucket_type': bucketType
+                    'bucket_type': bucketType,
+                    'granularity': granularity,
+                    'sampleSize': sampleSize
                 },
                 parameterSetSelection = paramSelection,
-                electionMethod = selectionMethods
+                electionMethod = max
             )
     for paramSelection in selectionSet:
-        for bucketType in bucketSet:
-            for granularity in granularitySet:
-                plotter.plotLinksMetric(
+        for depth in depthSet:
+            for sampleSize in sampleSizeSet:
+                plotter.plotLinksScores(
                     variables = {
-                        'sampleSize': [0.05, 1]
                     },
                     parameters = {
                         'randomMetricWeight': metricSet,
@@ -442,60 +471,62 @@ def makeGraphsLinks(plotter):
                     },
                     grouping = {
                         'bucket_type': bucketType,
-                        'granularity': granularity
-                    },
-                    parameterSetSelection = paramSelection,
-                    electionMethod = selectionMethods[0]
-                )
-    for paramSelection in selectionSet:
-        for sampleSize in sampleSizeSet:
-            for bucketType in bucketSet:
-                for granularity in granularitySet:
-                    plotter.plotLinksScores(
-                        variables = {
-                        },
-                        parameters = {
-                            'randomMetricWeight': metricSet,
-                            'ipMetricWeight': metricSet,
-                            'balancedMetricWeight': metricSet,
-                            'delayMetricWeight': metricSet,
-                        },
-                        grouping = {
-                            'bucket_type': bucketType,
-                            'sampleSize': sampleSize,
-                            'granularity': granularity
-                        },
-                        parameterSetSelection = paramSelection
-                    )
-
-
-def makeGraphsGranularitySampleSize(plotter):
-    granularitySet = 1, 4
-    metricSet = 0, 1
-    selectionSet = ge1,  # exclusive,  # None
-    bucketSet = 'probabilistic-bucket', 'ordered-bucket', 'probabilistic-power-bucket'
-    # length of grey, precision + recall (per set and total) wrt delay variation
-    # length of grey, precision + recall (per set and total) wrt granularity
-
-    for paramSelection in selectionSet:
-        for granularity in granularitySet:
-            for bucketType in bucketSet:
-                plotter.plotAllPlot(
-                    variables = {
-                        'sampleSize': None
-                    },
-                    parameters = {
-                        'randomMetricWeight': metricSet,
-                        'ipMetricWeight': metricSet,
-                        'balancedMetricWeight': metricSet,
-                        'delayMetricWeight': metricSet,
-                    },
-                    grouping = {
+                        'sampleSize': sampleSize,
                         'granularity': granularity,
-                        'bucket_type': bucketType
+                        'depth' : depth
                     },
                     parameterSetSelection = paramSelection
                 )
+
+
+def makeGraphsGranularitySampleSize(plotter):
+    granularity = 1
+    metricSet = 0, 1
+    selectionSet = ge1,  # exclusive,  # None
+    bucketType = 'probabilistic-power-bucket'  #,'probabilistic-bucket', 'ordered-bucket',
+    sampleSizeSet = 10, 20, 50
+    # length of grey, precision + recall (per set and total) wrt delay variation
+    # length of grey, precision + recall (per set and total) wrt granularity
+
+    # for paramSelection in selectionSet:
+    #     for granularity in granularitySet:
+    #         for bucketType in bucketSet:
+    #             plotter.plotAllPlot(
+    #                 variables = {
+    #                     'sampleSize': None
+    #                 },
+    #                 parameters = {
+    #                     'randomMetricWeight': metricSet,
+    #                     'ipMetricWeight': metricSet,
+    #                     'balancedMetricWeight': metricSet,
+    #                     'delayMetricWeight': metricSet,
+    #                 },
+    #                 grouping = {
+    #                     'granularity': granularity,
+    #                     'bucket_type': bucketType
+    #                 },
+    #                 parameterSetSelection = paramSelection
+    #             )
+    for paramSelection in selectionSet:
+        for sampleSize in sampleSizeSet:
+            plotter.plotAllPlot(
+                variables = {
+                    'depth': None
+                },
+                parameters = {
+                    'randomMetricWeight': metricSet,
+                    'ipMetricWeight': metricSet,
+                    'balancedMetricWeight': metricSet,
+                    'delayMetricWeight': metricSet,
+
+                },
+                grouping = {
+                    'granularity': granularity,
+                    'bucket_type': bucketType,
+                    'sampleSize': sampleSize
+                },
+                parameterSetSelection = paramSelection
+            )
 
 
 class Plotter(object):

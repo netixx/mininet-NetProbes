@@ -71,7 +71,7 @@ def wait_process(process):
         time.sleep(10)
 
 
-def make_watcher_results(watcher_log, watcher_output, topoFile):
+def make_watcher_results(watcher_log, watcher_output, topoFile, simParams):
     import datetime
 
     now = datetime.datetime.now()
@@ -87,7 +87,7 @@ def make_watcher_results(watcher_log, watcher_output, topoFile):
 
             import watcher_delay
             try:
-                watcher_delay.appendResults(watcher_delay.makeResults(watcher_output, topoFile))
+                watcher_delay.appendResults(watcher_delay.makeResults(watcher_output, topoFile, simParams))
             except Exception as e:
                 lg.error("Error while processing results %s\n"%e)
                 lg.error(traceback.format_exc())

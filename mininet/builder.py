@@ -32,19 +32,11 @@ class CustomTopo(Topo):
     """Topology builder for any specified topology in json format"""
 
     def __init__(self, topoFilePath = None, simParams = None, hostOptions = None, **opts):
-        if simParams is None:
-            simParams = {}
-        pparams = {}
-        # record parameters from the cli
-        for param in simParams:
-            p = param.partition("=")
-            pparams[p[0]] = p[2]
-
         if topoFilePath is None:
             raise RuntimeError("No topology file given")
         super(CustomTopo, self).__init__(**opts)
         self.netOptions = {"host": Host}
-        reader = TopologyLoader(topoObj = self, topoFile = topoFilePath, cliParams = pparams)
+        reader = TopologyLoader(topoObj = self, topoFile = topoFilePath, cliParams = simParams)
         reader.loadTopoFromFile()
         self.defaultHostOptions = hostOptions if hostOptions is not None else {}
 
@@ -391,7 +383,7 @@ def interract_once(net):
         if args.watcher_probe is not None:
             # interract.wait_process(netprobes[args.watcher_probe])
             interract.wait_reset(args.watcher_reset_event)
-            interract.make_watcher_results(args.watcher_log, args.watcher_output, vars.topoFile)
+            interract.make_watcher_results(args.watcher_log, args.watcher_output, vars.topoFile, pparams)
 
 
 def interract_mul(net):
@@ -413,7 +405,7 @@ def interract_mul(net):
             interract.post_events(net, netprobes, args.watcher_post_event)
 
             interract.wait_reset(args.watcher_reset_event)
-            interract.make_watcher_results(args.watcher_log, args.watcher_output, vars.topoFile)
+            interract.make_watcher_results(args.watcher_log, args.watcher_output, vars.topoFile, pparams)
 
     except (Exception, SystemExit) as e:
         lg.error(e)
@@ -750,10 +742,16 @@ if __name__ == '__main__':
     if args.force_x:
         hOpts['isXHost'] = True
 
+    pparams = {}
+    # record parameters from the cli
+    for param in args.vars:
+        p = param.partition("=")
+        pparams[p[0]] = p[2]
+
     vars.topoFile = topoFile
     vars.watcher_output = args.watcher_output
     runTopo(topoFile = topoFile,
-            simParams = args.vars,
+            simParams = pparams,
             hostOptions = hOpts,
             checkLevel = args.net_check,
             controller = controllers[args.controller])

@@ -1,6 +1,6 @@
 """Module for drawing graphs"""
 
-import random_graph
+import random
 
 
 class _PyplotGraph(type):
@@ -45,7 +45,7 @@ class _PyplotGraph(type):
         if g_xtickslab:
             ax.set_xticklabels(g_xtickslab)
 
-import collections, random_graph
+import collections
 class Graph(object):
     """Properties for making graphs and interface to graph object"""
     __metaclass__ = _PyplotGraph
@@ -57,7 +57,7 @@ class Graph(object):
               'indianred', 'indigo', 'lightseagreen', 'lightsalmon', 'limegreen', 'maroon', 'mediumaquamarine', 'mediumblue',
               'mediumvioletred', 'mediumslateblue','navy', 'olive', 'olivedrab', 'orange', 'orangered', 'orchid', 'purple', 'royalblue',
               'seagreen', 'slateblue','sienna', 'steelblue', 'teal', 'tomato']
-    random_graph.shuffle(colors)
+    random.shuffle(colors)
     markers = ['^', 'd', 'o', 'v', '>', '<', 'p', 's', '*']
 
     @classmethod
@@ -67,13 +67,13 @@ class Graph(object):
         :param item: hash item to get color
         """
         if item is None or not isinstance(item, collections.Hashable):
-            return cls.colors[random_graph.randint(0, len(cls.colors) - 1)]
+            return cls.colors[random.randint(0, len(cls.colors) - 1)]
         return cls.colors[hash(item) % len(cls.colors)]
 
     @classmethod
     def getMarker(cls, item = None):
         if item is None or not isinstance(item, collections.Hashable):
-            return cls.markers[random_graph.randint(0, len(cls.markers) - 1)]
+            return cls.markers[random.randint(0, len(cls.markers) - 1)]
         return cls.markers[hash(item) % len(cls.markers)]
 
 
@@ -142,11 +142,11 @@ class D3Graph(object):
         :param item: hash item to get color
         """
         if item is None or not isinstance(item, collections.Hashable):
-            return cls.colors[random_graph.randint(0, len(cls.colors) - 1)]
+            return cls.colors[random.randint(0, len(cls.colors) - 1)]
         return cls.colors[hash(item) % len(cls.colors)]
 
     @classmethod
     def getMarker(cls, item = None):
         if item is None or not isinstance(item, collections.Hashable):
-            return cls.markers[random_graph.randint(0, len(cls.markers) - 1)]
+            return cls.markers[random.randint(0, len(cls.markers) - 1)]
         return cls.markers[hash(item) % len(cls.markers)]
