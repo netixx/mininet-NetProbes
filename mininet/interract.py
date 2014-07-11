@@ -11,13 +11,13 @@ def wait_start_events(watcher_start_event = None):
     if watcher_start_event is not None:
         wait_file(watcher_start_event)
         EventsManager.startTimers()
-        time.sleep(5)
+        time.sleep(2)
 
 
 def wait_file(file):
     lg.output("Waiting for signal on %s to proceed\n" % file)
     while not os.path.exists(file):
-        time.sleep(8)
+        time.sleep(5)
     os.remove(file)
 
 
@@ -25,7 +25,7 @@ def wait_reset(watcher_reset_event = None):
     if watcher_reset_event is not None:
         wait_file(watcher_reset_event)
         EventsManager.stopEvents()
-        time.sleep(5)
+        time.sleep(2)
 
 
 def post_events(net, netprobes, watcher_post_event = None):
@@ -68,7 +68,7 @@ def wait_process(process):
     lg.output("Waiting for process %s to terminate\n" % process.pid)
     # while process is running
     while process.poll() is None:
-        time.sleep(10)
+        time.sleep(5)
 
 
 def make_watcher_results(watcher_log, watcher_output, topoFile, simParams):

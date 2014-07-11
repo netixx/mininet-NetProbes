@@ -141,12 +141,12 @@ def _false_pos(white, bad):
 
 # def _conf_matrix(matches, watcher):
 # mat = []
-#     for color, part in matches.iteritems():
-#         waAddrs = [p['address'] for p in watcher[color]['hosts']]
-#         mat.append([waAddrs, part])
+# for color, part in matches.iteritems():
+# waAddrs = [p['address'] for p in watcher[color]['hosts']]
+# mat.append([waAddrs, part])
 #
-#     white = mat[0][0]
-#     good = mat[0][1]
+# white = mat[0][0]
+# good = mat[0][1]
 #     black = mat[1][0]
 #     bad = mat[1][1]
 #
@@ -457,26 +457,26 @@ def makeGraphsLinks(plotter):
                 parameterSetSelection = paramSelection,
                 electionMethod = max
             )
-    for paramSelection in selectionSet:
-        for depth in depthSet:
-            for sampleSize in sampleSizeSet:
-                plotter.plotLinksScores(
-                    variables = {
-                    },
-                    parameters = {
-                        'randomMetricWeight': metricSet,
-                        'ipMetricWeight': metricSet,
-                        'balancedMetricWeight': metricSet,
-                        'delayMetricWeight': metricSet,
-                    },
-                    grouping = {
-                        'bucket_type': bucketType,
-                        'sampleSize': sampleSize,
-                        'granularity': granularity,
-                        'depth' : depth
-                    },
-                    parameterSetSelection = paramSelection
-                )
+            # for paramSelection in selectionSet:
+            #     for depth in depthSet:
+            #         for sampleSize in sampleSizeSet:
+            #             plotter.plotLinksScores(
+            #                 variables = {
+            #                 },
+            #                 parameters = {
+            #                     'randomMetricWeight': metricSet,
+            #                     'ipMetricWeight': metricSet,
+            #                     'balancedMetricWeight': metricSet,
+            #                     'delayMetricWeight': metricSet,
+            #                 },
+            #                 grouping = {
+            #                     'bucket_type': bucketType,
+            #                     'sampleSize': sampleSize,
+            #                     'granularity': granularity,
+            #                     'depth' : depth
+            #                 },
+            #                 parameterSetSelection = paramSelection
+            #             )
 
 
 def makeGraphsGranularitySampleSize(plotter):
@@ -649,7 +649,10 @@ class Plotter(object):
         if array.size <= 1:
             return
         maxJitter = (array.max() - array.min()) / 100.0
-        array += (np.random.random_sample((array.size,)) - 0.5) * 2 * maxJitter
+        # print array
+        jit = (np.random.random_sample((array.size,)) - 0.5) * 2 * maxJitter
+        # array += jit
+        return array + jit
 
 
 class LinkPlotter(Plotter):
@@ -795,7 +798,7 @@ class LinkPlotter(Plotter):
                 return
             self.gr.subplot(3, 1, 1)
             x = self.np.array(x)
-            self.jitter(x)
+            x = self.jitter(x)
             self.gr.errorbar(x, self.np.array(y), yerr = self.np.array(dev),
                              marker = self.gr.getMarker(stp),
                              label = stp,
@@ -867,7 +870,7 @@ class LinkPlotter(Plotter):
                 x, metric, dev, relerr = self.getLinksMetric(variables, selector, p)
                 if len(x) > 0:
                     plot = True
-                    self.jitter(x)
+                    x = self.jitter(x)
                     self.gr.subplot(3, 1, 1)
                     self.gr.errorbar(x, metric, yerr = dev,
                                      marker = self.gr.getMarker(str(paramSet) + stp),
@@ -1204,7 +1207,7 @@ class SetPlotter(Plotter):
             selector = dict(grouping.items() + paramSet.items())
             x, precision, recall = self.getTotalPrecisionAndRecall(variables, selector)
             if len(x) > 0:
-                self.jitter(x)
+                x = self.jitter(x)
                 plot = True
                 grapher(x, precision, marker = 'd', label = 'Total Precision for %s' % self.printParams(paramSet),
                         color = self.gr.getColor(str(paramSet)), alpha = self.alpha)
@@ -1238,7 +1241,7 @@ class SetPlotter(Plotter):
             selector = dict(grouping.items() + paramSet.items())
             x, precision, recall = self.getTotalPrecisionAndRecall(variables, selector)
             if len(x) > 0:
-                self.jitter(x)
+                x = self.jitter(x)
                 plot = True
                 grapher(x, precision, marker = 'd', label = 'Total Precision for %s' % self.printParams(paramSet),
                         color = self.gr.getColor(str(paramSet)), alpha = self.alpha)
@@ -1269,7 +1272,7 @@ class SetPlotter(Plotter):
             selector = dict(grouping.items() + paramSet.items())
             x, precision, recall = self.getTotalPrecisionAndRecall(variables, selector)
             if len(x) > 0:
-                self.jitter(x)
+                x = self.jitter(x)
                 plot = True
                 grapher(x, recall, marker = '^', label = 'Total Recall for %s' % self.printParams(paramSet),
                         color = self.gr.getColor(str(paramSet)), alpha = self.alpha)
@@ -1332,7 +1335,7 @@ class SetPlotter(Plotter):
             selector = dict(grouping.items() + paramSet.items())
             x, rand, yerr = self.getAvgRandIndex(variables, selector)
             if len(x) > 0:
-                self.jitter(x)
+                x = self.jitter(x)
                 plot = True
                 self.gr.errorbar(x, rand,
                                  yerr = yerr,
@@ -1364,7 +1367,7 @@ class SetPlotter(Plotter):
             selector = dict(grouping.items() + paramSet.items())
             x, fmeasure, yerr = self.getAvgFMeasure(variables, selector)
             if len(x) > 0:
-                self.jitter(x)
+                x = self.jitter(x)
                 plot = True
                 self.gr.errorbar(x, fmeasure,
                                  yerr = yerr,
@@ -1397,7 +1400,7 @@ class SetPlotter(Plotter):
             selector = dict(grouping.items() + paramSet.items())
             x, fmeasure, yerr = self.getAvgFMeasure(variables, selector)
             if len(x) > 0:
-                self.jitter(x)
+                x = self.jitter(x)
                 plot = True
                 grapher(x, yerr,
                         marker = self.gr.getMarker(),
@@ -1429,7 +1432,7 @@ class SetPlotter(Plotter):
             selector = dict(grouping.items() + paramSet.items())
             x, fmeasure = self.getFMeasure(variables, selector)
             if len(x) > 0:
-                self.jitter(x)
+                x = self.jitter(x)
                 plot = True
                 grapher(x, fmeasure,
                         marker = self.gr.getMarker(),
