@@ -11,7 +11,7 @@ import math
 
 from mininet.log import info, error
 import events
-from measures import Traceroute, Ping, DelayStats, IPerf, Spruce, IGI, Assolo, Abing, BwStats, Yaz
+from measures import Traceroute, Ping, DelayStats, IPerf, Spruce, IGI, Assolo, Abing, BwStats
 import vars
 from graphs import Graph
 
@@ -75,8 +75,8 @@ class Bandwidth(object):
 
     DEFAULT_OPTIONS = {
         'sample_number': 20,
-        'use_hfsc' : False,
-        'use_tbf' : False
+        'use_hfsc': False,
+        'use_tbf': False
     }
 
     def __init__(self, net = None, affected_check = None, unaffected_check = None,
@@ -85,9 +85,9 @@ class Bandwidth(object):
         self.net = net
         self.checkName = name
         self.PAIRS = map(tuple, affected_check)
-        #number of packets per sample/baseline
+        # number of packets per sample/baseline
         self.PACKET_NUMBER = 4
-        #bitrate in Mbps
+        # bitrate in Mbps
         self.STEPS = {}
         for target, tops in targets.iteritems():
             self.STEPS[target] = tops['steps']
@@ -163,7 +163,7 @@ class Bandwidth(object):
         method['real_steps'] = {target: [] for target in self.STEPS.keys()}
         for stepNum in range(0, self.steps_len):
             self.__runStep(stepNum, method)
-        #for step graph
+        # for step graph
         for target in self.STEPS.keys():
             method['real_steps'][target].append((self.STEPS[target][-1], self._getTimeStamp()))
         for target in self.STEPS.keys():
@@ -344,11 +344,11 @@ class Bandwidth(object):
             error("Could not print results %s\n" % e)
 
         nmethods = len(methods)
-        line = 1
-        ncols = 1
+        gr = 1
+        ncols = 3
         nlines = nmethods
-        # nbins = 15
-        #dict(step : dict(method, data))
+        nbins = 15
+        # dict(step : dict(method, data))
         # mboxes = {}
         try:
             fn = 'checks/%s.pdf' % checkName
@@ -356,6 +356,8 @@ class Bandwidth(object):
             for name, method in methods.iteritems():
                 avgs = {}
                 ts = {}
+                adiffs = {}
+                rdiffs = {}
                 steps = {'total': None}
                 for target, tsteps in method['real_steps'].iteritems():
                     st = zip(*tsteps)
@@ -367,14 +369,17 @@ class Bandwidth(object):
 
                 for pair in method['pairs']:
                     avg = map(lambda measure: measure.bw / (1000 ** 2), pair.measures)
-
+                    adiff = map(lambda measure: (measure.bw - measure.step) / (1000 ** 2), pair.measures)
+                    rdiff = map(lambda measure: abs(measure.bw / (1000.0 ** 2) - measure.step ) / float(measure.step), pair.measures)
                     t = map(lambda measure: measure.timestamp, pair.measures)
                     avgs[pair.getPair()] = np.array(avg)
                     ts[pair.getPair()] = np.array(t)
+                    adiffs[pair.getPair()] = np.array(adiff)
+                    rdiffs[pair.getPair()] = np.array(rdiff)
 
 
                 # plot the data
-                Graph.subplot(nlines, ncols, line)
+                Graph.subplot(nlines, ncols, gr)
                 for pair in method['pairs']:
                     Graph.scatter(ts[pair.getPair()], avgs[pair.getPair()],
                                   color = Graph.getColor(pair.getPair()),
@@ -383,16 +388,35 @@ class Bandwidth(object):
                 for target, tsteps in steps.iteritems():
                     Graph.step(tsteps[0], tsteps[1], 'r', where = 'post', label = target, color = Graph.getColor(target))
                     Graph.hold = True
+
                 Graph.decorate(g_xlabel = 'Time (s)',
-                               g_ylabel = 'BW estimation with %s (Mbps)' % name)
+                               g_ylabel = 'BW estimation with %s (Mbps)' % name,
+                               g_title = 'Measure for Bandwidth for tool %s' % name)
                 ax = Graph.gca()
                 ax.set_yscale('log')
                 Graph.legend(loc = 2)
+
                 Graph.draw()
-                line += ncols
+                Graph.subplot(nlines, ncols, gr + 1)
+                Graph.hist(rdiffs.values(), nbins,
+                           label = ["%s,%s" % x for x in rdiffs.keys()],
+                           g_xlabel = 'Relative error',
+                           g_title = 'Relative error for tool %s' % name)
+                Graph.legend(loc = 2)
+                ax = Graph.gca()
+                ax.set_yscale('log')
+
+                Graph.subplot(nlines, ncols, gr + 2)
+                Graph.hist(adiffs.values(), nbins,
+                           label = ["%s,%s" % x for x in adiffs.keys()],
+                           g_xlabel = 'Absolute error',
+                           g_title = 'Absolute error for tool %s' % name)
+                Graph.legend(loc = 2)
+
+                gr += ncols
             fig = Graph.gcf()
-            fig.set_size_inches(20, 20)
-            pdf.savefig(bbox_inches = 'tight')  #'checks/delay.pdf', format = 'pdf', )
+            fig.set_size_inches(20, 30)
+            pdf.savefig(bbox_inches = 'tight')  # 'checks/delay.pdf', format = 'pdf', )
             Graph.close()
 
             d = pdf.infodict()
@@ -412,10 +436,10 @@ class Delay(object):
 
     SAMPLE_NUMBER = 'sample_number'
     PACKET_NUMBER = 'packet_number'
-    #deadline after which the command terminates
+    # deadline after which the command terminates
     SAMPLE_DEADLINE = 5
 
-    #rate at which to send the packets
+    # rate at which to send the packets
     SEND_SPEED = 0.3
     # consider packet lost if it arrives after WAIT_FACTOR * step * 2
     WAIT_FACTOR = 3
@@ -802,13 +826,15 @@ class Delay(object):
             n, bins, patches = Graph.hist(rdiffs.values(), nbins,
                                           normed = 1,
                                           label = ["%s,%s" % x for x in rdiffs.keys()],
-                                          g_xlabel = 'Logarithmic Relative error')
+                                          g_xlabel = 'Logarithmic Relative error',
+                                          g_title = 'Logarithmic Relative error for %s' % name)
             Graph.legend(loc = 'upper left', bbox_to_anchor = (0.9, 1.0), ncol = 1)
             # ax.set_xticklabels([lab.get_text() for lab in ax.get_xaxis().get_ticklabels()])
             Graph.subplot(nlines, ncols, line + 2)
             Graph.hist(adiffs.values(), nbins,
                        label = ["%s,%s" % x for x in adiffs.keys()],
-                       g_xlabel = 'Absolute error')
+                       g_xlabel = 'Absolute error',
+                       g_title = 'Absolute error for %s' % name)
             Graph.legend(loc = 'upper left', bbox_to_anchor = (0.9, 1.0), ncol = 1)
             # plt.hist(diffs.values(), stacked = True)
             # plt.xticks(bins, ["2^%s" % i for i in bins])
@@ -1002,8 +1028,6 @@ class Delay(object):
         Graph.show()
 
 
-
-
 if __name__ == "__main__":
     import argparse
     import mininet.log
@@ -1026,10 +1050,10 @@ if __name__ == "__main__":
     args = parser.parse_args()
     print("Making results from %s and %s" % (args.delay_json, args.bw_json))
     try:
-        Delay.makeResults(Delay.loadResults('checks/%s' % args.delay_json), checkName = args.delay_pdf, saveResults = False)
+        Delay.makeResults(Delay.loadResults(args.delay_json), checkName = args.delay_pdf, saveResults = False)
     except:
         pass
     try:
-        Bandwidth.makeResults(Bandwidth.loadResults('checks/%s' % args.bw_json), checkName = args.bw_pdf, saveResults = False)
+        Bandwidth.makeResults(Bandwidth.loadResults(args.bw_json), checkName = args.bw_pdf, saveResults = False)
     except:
         pass
