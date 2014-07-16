@@ -369,7 +369,7 @@ class Bandwidth(object):
 
                 for pair in method['pairs']:
                     avg = map(lambda measure: measure.bw / (1000 ** 2), pair.measures)
-                    adiff = map(lambda measure: (measure.bw - measure.step) / (1000 ** 2), pair.measures)
+                    adiff = map(lambda measure: measure.bw / (1000 ** 2) - measure.step , pair.measures)
                     rdiff = map(lambda measure: abs(measure.bw / (1000.0 ** 2) - measure.step ) / float(measure.step), pair.measures)
                     t = map(lambda measure: measure.timestamp, pair.measures)
                     avgs[pair.getPair()] = np.array(avg)
@@ -403,13 +403,13 @@ class Bandwidth(object):
                            g_xlabel = 'Relative error',
                            g_title = 'Relative error for tool %s' % name)
                 Graph.legend(loc = 2)
-                ax = Graph.gca()
-                ax.set_yscale('log')
+                # ax = Graph.gca()
+                # ax.set_yscale('log')
 
                 Graph.subplot(nlines, ncols, gr + 2)
                 Graph.hist(adiffs.values(), nbins,
                            label = ["%s,%s" % x for x in adiffs.keys()],
-                           g_xlabel = 'Absolute error',
+                           g_xlabel = 'Absolute error (Mbps)',
                            g_title = 'Absolute error for tool %s' % name)
                 Graph.legend(loc = 2)
 
