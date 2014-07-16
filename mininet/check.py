@@ -420,10 +420,10 @@ class Bandwidth(object):
             Graph.close()
 
             d = pdf.infodict()
-            d['Title'] = 'Delays measurement'
+            d['Title'] = 'Bandwidth measurement'
             d['Author'] = u'Francois Espinet'
-            d['Subject'] = 'Delay measurement'
-            d['Keywords'] = 'measurement delays'
+            d['Subject'] = 'Bandwidth measurement'
+            d['Keywords'] = 'measurement bw bandwidth'
             d['ModDate'] = datetime.datetime.today()
         finally:
             pdf.close()
@@ -764,6 +764,7 @@ class Delay(object):
             for l in range(1, len(mets) + 1):
                 Graph.axvspan(l, l + 1, facecolor = Graph.getColor(mets[l - 1]), alpha = 0.1, hold = True)  #, linestyle = '--')
             Graph.legend(loc = 2)
+            Graph.xticks(rotation = 50)
             Graph.decorate(g_xtickslab = ['', ] + mets, g_xticks = [0.5 + i for i in range(0, len(methods) + 1)],
                            g_grid = True,
                            g_xlabel = 'Measurement method', g_ylabel = 'Measured delays with stddev (ms)',
@@ -772,6 +773,7 @@ class Delay(object):
 
             Graph.subplot(1, ncols, nstep)
             Graph.boxplot([blm[met] for met in mets], sym = outliers)
+            Graph.xticks(rotation = 50)
             Graph.decorate(g_xtickslab = mets,
                            g_grid = True,
                            g_xlabel = 'Measurement method',
@@ -781,6 +783,7 @@ class Delay(object):
             for step in sorted(mboxes.keys()):
                 m_datas = mboxes[step]
                 Graph.subplot(1, ncols, nstep)
+                Graph.xticks(rotation = 50)
                 Graph.boxplot([m_datas[met] for met in mets], sym = outliers)
                 Graph.axhline(2 * step, color = 'r')
                 Graph.decorate(g_xtickslab = mets, g_grid = True,
@@ -788,7 +791,7 @@ class Delay(object):
                                g_title = 'Measures for step 2x%sms' % step)
                 nstep += 1
             fig = Graph.gcf()
-            fig.set_size_inches(40, 15)
+            fig.set_size_inches(28, 8)
             pdf.savefig(bbox_inches = 'tight')  #'checks/boxdelay.pdf', format = 'pdf', )
             Graph.close()
 
@@ -847,7 +850,7 @@ class Delay(object):
             Graph.draw()
             line += ncols
         fig = Graph.gcf()
-        fig.set_size_inches(40, 25)
+        fig.set_size_inches(20, 25)
         pdf.savefig(bbox_inches = 'tight')  #'checks/delay.pdf', format = 'pdf', )
         Graph.close()
 
@@ -896,7 +899,7 @@ class Delay(object):
                 dfig += 1
             fig += ncols
         fig = Graph.gcf()
-        fig.set_size_inches(100, 40)
+        fig.set_size_inches(50, 25)
         pdf.savefig(bbox_inches = 'tight')  #'checks/delay.pdf', format = 'pdf', )
         Graph.close()
 
