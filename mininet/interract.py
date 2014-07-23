@@ -61,6 +61,13 @@ def pre_events(net, netprobes, watcher_pre_event = None):
         lg.output("Running pre command (%s)\n" % " ".join(rcmd))
         p = subprocess.Popen(shlex.split(" ".join(rcmd)))
         p.communicate()
+        p.wait()
+        if p.returncode != 0:
+            time.sleep(5)
+            lg.error("Command returned %s\n"%p.returncode)
+            p = subprocess.Popen(shlex.split(" ".join(rcmd)))
+            p.communicate()
+            p.wait()
 
 
 
