@@ -905,7 +905,7 @@ class LinkPlotter(Plotter):
                 if len(x) > 1:
                     width = (x[1:] - x[:-1]).min() * basewidth
                 plot = True
-                self.gr.subplot(3, 1, 1)
+                self.gr.subplot(1, 1, 1)
                 self.gr.bar(x + offset, metric, yerr = dev,
                             width = width,
                             # marker = self.gr.getMarker(str(paramSet) + stp),
@@ -924,7 +924,7 @@ class LinkPlotter(Plotter):
                         )
                 offset += width
         if plot:
-            self.gr.subplot(3, 1, 1)
+            self.gr.subplot(1, 1, 1)
             self.setMargins()
             self.gr.decorate(g_xlabel = self.printVariables(variables),
                              g_ylabel = "Metric value",
@@ -968,7 +968,6 @@ class LinkPlotter(Plotter):
                             graphs[xi] = len(graphs) + 1
                         cgr = graphs[xi]
                         self.gr.subplot(len(graphs), 1, cgr)
-                        # self.gr.subplot(1, 1, 1)
                         s = self.np.sort(y[i])
                         s = self.jitter(s)
                         yvals = 1 - (self.np.arange(len(s)) + 0.5) / float(len(s))
@@ -1021,7 +1020,7 @@ class LinkPlotter(Plotter):
                     y = values[1]
                     width = (x[1:] - x[:-1]).min() * basewidth
                     plot = True
-                    self.gr.subplot(3, 1, 1)
+                    self.gr.subplot(1, 1, 1)
                     self.gr.bar(x + offset, y,
                                 width = width,
                                 label = self.wrapLegend('%s' % self.printParams(paramSet, stp)),
@@ -1030,7 +1029,7 @@ class LinkPlotter(Plotter):
                     )
                 offset += width
         if plot:
-            self.gr.subplot(3, 1, 1)
+            self.gr.subplot(1, 1, 1)
             self.setMargins()
             self.gr.decorate(g_xlabel = self.printVariables(variables),
                              g_ylabel = "Metric Score (order)",
@@ -1149,7 +1148,7 @@ class LinkPlotter(Plotter):
         if not isinstance(electionMethod, collections.Iterable):
             electionMethod = [electionMethod]
 
-        basewidth = (1.0 / len(paramSets))
+        basewidth = 0.5 * (1.0 / len(paramSets))
         width = basewidth
         offset = 0
 
@@ -1356,7 +1355,7 @@ class LinkPlotter(Plotter):
                 x = x[0]
                 plot = True
                 # x = self.jitter(x)
-                self.gr.subplot(3, 1, 1)
+                self.gr.subplot(1, 1, 1)
                 self.gr.errorbar(x, metric, yerr = dev,
                                  marker = self.gr.getMarker(topo),
                                  label = topo,
@@ -1384,7 +1383,7 @@ class LinkPlotter(Plotter):
                     # color = self.gr.getColor(str(paramSet) + stp), alpha = self.alpha
                     # )
         if plot:
-            self.gr.subplot(3, 1, 1)
+            self.gr.subplot(1, 1, 1)
             self.setMargins()
             self.gr.decorate(g_xlabel = self.printVariables(variables),
                              g_ylabel = "Metric",
@@ -1467,7 +1466,7 @@ class SetPlotter(Plotter):
                 if len(x) > 1:
                     width = (x[1:] - x[:-1]).min() * basewidth
                 plot = True
-                self.gr.subplot(2, 1, 1)
+                self.gr.subplot(1, 1, 1)
                 self.gr.bar(x + offset, rand, yerr = dev,
                             width = width,
                             label = self.wrapLegend('%s' % self.printParams(paramSet, stp)),
@@ -1491,7 +1490,7 @@ class SetPlotter(Plotter):
                 # )
                 offset += width
         if plot:
-            self.gr.subplot(2, 1, 1)
+            self.gr.subplot(1, 1, 1)
             self.setMargins()
             self.gr.decorate(g_xlabel = self.printVariables(variables),
                              g_ylabel = "Rand Index",
@@ -1526,7 +1525,7 @@ class SetPlotter(Plotter):
         if callable(parameterSetSelection):
             paramSets = parameterSetSelection(paramSets)
 
-        basewidth = (1.0 / len(paramSets))
+        basewidth = 0.5 * (1.0 / len(paramSets))
         width = basewidth
         offset = 0
 
