@@ -15,6 +15,7 @@ PLOT_PATH = 'watchers/watchers.pdf'
 
 GRAPH_ROOT = 's1'
 
+
 def _buildGraph(topo, params):
     g = nx.Graph()
     for e in topo['events']:
@@ -289,6 +290,7 @@ def makeGraphs(results, plotPath = PLOT_PATH):
 
 def makeGraphsLinks(plotter):
     metricSet = 0, 1
+    metricSetBis = 0,
 
     def max(x):
         return plotter.np.percentile(x, 100)
@@ -299,23 +301,11 @@ def makeGraphsLinks(plotter):
     def maxMinus1(x):
         return plotter.np.max(x) - 1
 
-    def std2(x):
-        return 2 * plotter.np.std(x)
-
-    def std3(x):
-        return 3 * plotter.np.std(x)
+    def std4(x):
+        return 3.8 * plotter.np.std(x)
 
     def mean(x):
         return 4.8 * plotter.np.mean(x)
-
-    # import scipy.stats
-    #
-    # def hmean(x):
-    #     4 * scipy.stats.hmean(x[plotter.np.ma.where(x > 0)[0]])
-    #
-    # def gmean(x):
-    #     4 * scipy.stats.gmean(x[plotter.np.ma.where(x > 0)[0]])
-
 
     metrics1 = (
         plotter.newMetric(name = 'naive', call = plotter.metricNaive),
@@ -324,40 +314,19 @@ def makeGraphsLinks(plotter):
     )
 
     metrics1bis = (
-        plotter.newMetric(name = 'naive-kn', call = plotter.metricNaive, kwargs = {'assumeLocation' : True}),
-        plotter.newMetric(name = 'probabilisti-kn', call = plotter.metricProbabilistic, kwargs = {'assumeLocation' : True}),
+        plotter.newMetric(name = 'naive-kn', call = plotter.metricNaive, kwargs = {'assumeLocation': True}),
+        plotter.newMetric(name = 'probabilisti-kn', call = plotter.metricProbabilistic, kwargs = {'assumeLocation': True}),
         plotter.newMetric(name = 'maximum-kn', call = plotter.metricGreater, kwargs = {'electionMethod': max,
-                                                                                    'assumeLocation': True})
+                                                                                       'assumeLocation': True})
     )
 
     metrics2 = (
         plotter.newMetric(name = 'max', kwargs = {'electionMethod': max}),
         plotter.newMetric(name = 'maxMinus1', kwargs = {'electionMethod': maxMinus1}),
         plotter.newMetric(name = 'mean5', kwargs = {'electionMethod': mean}),
-        plotter.newMetric(name = 'std3', kwargs = {'electionMethod': std3}),
-        # plotter.newMetric(name = 'std2', kwargs = {'electionMethod': std2}),
+        plotter.newMetric(name = 'std4', kwargs = {'electionMethod': std4}),
         plotter.newMetric(name = 'std', kwargs = {'electionMethod': std}),
     )
-
-    plotter.bar3dLinksMetric(
-        variables = {
-            'depth': None,
-            'sampleSize': None
-        },
-        parameters = {
-            'randomMetricWeight': metricSet,
-            'ipMetricWeight': metricSet,
-            'balancedMetricWeight': metricSet,
-            'delayMetricWeight': metricSet
-        },
-        grouping = {
-        },
-        parameterSetSelection = ge1,
-        electionMethod = max
-    )
-
-
-    # rand measure
 
     # Compare selection metrics wrt sample size
     plotter.barLinksMetric(
@@ -368,7 +337,25 @@ def makeGraphsLinks(plotter):
             'randomMetricWeight': metricSet,
             'ipMetricWeight': metricSet,
             'balancedMetricWeight': metricSet,
-            'delayMetricWeight': metricSet
+            'delayMetricWeight': metricSetBis
+        },
+        grouping = {
+            # 'degree': ''
+        },
+        parameterSetSelection = ge1,
+        electionMethod = max
+    )
+
+    # Compare selection metrics wrt sample size
+    plotter.compareOrderSelectionMetrics(
+        variables = {
+            'sampleSize': None,
+        },
+        parameters = {
+            'randomMetricWeight': metricSet,
+            'ipMetricWeight': metricSet,
+            'balancedMetricWeight': metricSet,
+            'delayMetricWeight': metricSetBis
         },
         grouping = {
             # 'degree': ''
@@ -425,48 +412,117 @@ def makeGraphsLinks(plotter):
         }
     )
 
+    # ========================================================================================== #
+    # extras
+    # ========================================================================================== #
+    plotter.bar3dLinksMetric(
+        variables = {
+            'depth': None,
+            'sampleSize': None
+        },
+        parameters = {
+            'randomMetricWeight': metricSet,
+            'ipMetricWeight': metricSet,
+            'balancedMetricWeight': metricSet,
+            'delayMetricWeight': metricSetBis
+        },
+        grouping = {
+        },
+        parameterSetSelection = ge1,
+        electionMethod = max
+    )
+
+
+    # Compare selection metrics (order) wrt sample size
+    plotter.cdfSelectionMetrics(
+        variables = {
+            'sampleSize': None,
+        },
+        parameters = {
+            'randomMetricWeight': metricSet,
+            'ipMetricWeight': metricSet,
+            'balancedMetricWeight': metricSet,
+            'delayMetricWeight': metricSetBis
+        },
+        grouping = {
+            # 'degree': ''
+        },
+        parameterSetSelection = ge1,
+        electionMethod = max
+    )
+
+    # Compare selection metrics (order) wrt sample size
+    plotter.compareOrderSelectionMetrics(
+        variables = {
+            'depth': None,
+        },
+        parameters = {
+            'randomMetricWeight': metricSet,
+            'ipMetricWeight': metricSet,
+            'balancedMetricWeight': metricSet,
+            'delayMetricWeight': metricSetBis
+        },
+        grouping = {
+            # 'degree': ''
+        },
+        parameterSetSelection = ge1,
+        electionMethod = max,
+    )
+
     # check for best std factor
-    # def stdy(x, y):
-    #     return y * plotter.np.std(x)
-    # from functools import partial
-    #
-    # metrics3 = [plotter.newMetric(name = 'std%s' % (y / 10.0), kwargs = {'electionMethod': partial(stdy, y = y / 10.0)}) for y in range(30, 62, 2)]
-    #
-    # # compare link selection policy for sampleSize = max(previous)
-    # plotter.compareMetrics(
-    # variables = {
-    # # 'sampleSize': bestSampleSize
-    # 'depth': None
-    #     },
-    #     grouping = {
-    #         # 'sampleSize': bestSampleSize
-    #     },
-    #     metrics = metrics3
-    # )
+    def stdy(x, y):
+        return y * plotter.np.std(x)
+
+    from functools import partial
+
+    metrics3 = [plotter.newMetric(name = 'std%s' % (y / 10.0), kwargs = {'electionMethod': partial(stdy, y = y / 10.0)}) for y in range(30, 62, 2)]
+
+    # compare link selection policy for sampleSize = max(previous)
+    plotter.compareMetrics(
+        variables = {
+            'sampleSize': None
+            # 'depth': None
+        },
+        grouping = {
+            # 'sampleSize': bestSampleSize
+        },
+        metrics = metrics3,
+        title = 'Standard deviation factor selection',
+        annotate = False
+    )
+
     # check for best mean factor
-    # from functools import partial
-    #
-    # def meany(x, y):
-    #     return y * plotter.np.mean(x)
-    # metrics4 = [plotter.newMetric(name = 'mean%s' % (y / 10.0), kwargs = {'electionMethod': partial(meany, y = y / 10.0)}) for y in range(40, 60, 2)]
-    #
-    # # compare link selection policy for sampleSize = max(previous)
-    # plotter.compareMetrics(
-    # variables = {
-    #     'sampleSize': None
-    #     # 'depth': None
-    # },
-    #     grouping = {
-    #         # 'sampleSize': bestSampleSize
-    #     },
-    #     metrics = metrics4
-    # )
+    def meany(x, y):
+        return y * plotter.np.mean(x)
+
+    metrics4 = [plotter.newMetric(name = 'mean%s' % (y / 10.0), kwargs = {'electionMethod': partial(meany, y = y / 10.0)}) for y in range(40, 60,
+                                                                                                                                          2)]
+
+    # compare link selection policy for sampleSize = max(previous)
+    plotter.compareMetrics(
+        variables = {
+            'sampleSize': None
+            # 'depth': None
+        },
+        grouping = {
+            # 'sampleSize': bestSampleSize
+        },
+        metrics = metrics4,
+        title = "Mean factor selection",
+        annotate = False
+    )
 
 
 def makeGraphsSet(plotter):
     # plotter.bar3dRandMeasure()
-    # plotter.barRandMeasure()
-    pass
+    plotter.barRandMeasure()
+
+
+from collections import namedtuple
+
+
+def convert(dictionary):
+    return namedtuple('GenericDict', dictionary.keys())(**dictionary)
 
 
 class Plotter(object):
@@ -479,12 +535,19 @@ class Plotter(object):
 
         self.np = np
 
+    def graphHeight(self, nGraphs = 1):
+        return self._grHeight * nGraphs + self._titleHeight
+
     def preparePlot(self):
         from matplotlib.backends.backend_pdf import PdfPages
 
         self.alpha = 0.9
         self.alpha3d = 0.85
         self.alphaSurf = 0.7
+
+        self.graphWidth = 10
+        self._grHeight = 4
+        self._titleHeight = 1.5
         log.output('Creating new graph at %s\n' % self.plotPath)
         return PdfPages(self.plotPath)
 
@@ -560,6 +623,10 @@ class Plotter(object):
     def wrapTitle(self, title):
         return "\n".join(textwrap.wrap(title, 60))
 
+    def wrapLegend(self, legend):
+        return "\n  ".join(textwrap.wrap(legend, 30))
+
+
     def getParamSet(self, parameters):
         # convert dict of list to list of dicts
         vals = parameters.values()
@@ -595,8 +662,31 @@ class Plotter(object):
         # array += jit
         return array + jit
 
+    def printTitle(self, title, variables, grouping = None):
+        return self.wrapTitle(
+            title.format(variables = variables if len(variables) > 0 else "",
+                         grouping = "with %s" % grouping if grouping is not None and len(grouping) > 0 else "")
+        )
+
+
+def logGraph(func):
+    def f(self, **kwargs):
+        log.output("Making new graph %s with %s%s%s ... " % (
+            func.__name__,
+            "variables : %s" % self.printVariables(kwargs['variables']) if kwargs.has_key('variables') and len(kwargs['variables']) > 0 else "",
+            ", parameters: %s" % self.printParams(kwargs['parameters']) if kwargs.has_key('parameters') and len(kwargs['parameters']) > 0 else "",
+            ", grouping: %s" % self.printParams(kwargs['grouping']) if kwargs.has_key('grouping') and len(kwargs['grouping']) > 0 else "")
+        )
+        func(self, **kwargs)
+        log.output("done\n\n")
+
+    return f
+
 
 class LinkPlotter(Plotter):
+    def printMetrics(self, metrics):
+        return " ,".join(m['name'] for m in metrics)
+
     def _sumLink(self, link):
         p = 0
         m = 0
@@ -639,7 +729,7 @@ class LinkPlotter(Plotter):
             if l in candidates:
                 s += 1
         s = float(s) / len(candidates) if len(candidates) > 0 else 0
-        key = tuple(exp['parameters'][v] for v in variables.keys())
+        key = convert({v: exp['parameters'][v] for v in variables.keys()})
         return key, s
 
     def metricNaive(self, exp, variables, assumeLocation = False):
@@ -647,7 +737,7 @@ class LinkPlotter(Plotter):
         scores = len(rscores)
         scores = 1.0 / scores if scores > 0 else 0
         nlinks = len(exp['tlinks'])
-        key = tuple(exp['parameters'][v] for v in variables.keys())
+        key = convert({v: exp['parameters'][v] for v in variables.keys()})
         return key, nlinks * scores
 
 
@@ -667,7 +757,7 @@ class LinkPlotter(Plotter):
             s /= totScores
         else:
             s = 0
-        key = tuple(exp['parameters'][v] for v in variables.keys())
+        key = convert({v: exp['parameters'][v] for v in variables.keys()})
         return key, s
 
     def getRawLinksMetric(self, variables, selector, metric = None):
@@ -685,9 +775,89 @@ class LinkPlotter(Plotter):
 
     def getLinksMetric(self, variables, selector, metric = None):
         f = self.getRawLinksMetric(variables, selector, metric)
-        return self.mergeRawData(f)
+        return self._mergeRawData(f)
 
-    def mergeRawData(self, data):
+    def getSumMetricOrder(self, variables, selector, paramSets, metric = None):
+        f = self.getRawMetricOrder(variables, selector, paramSets, metric = metric)
+        f2 = {}
+        for key, value in f.iteritems():
+            vkeys = sorted(value.keys())
+            f2[key] = (self.np.array(zip(*vkeys)), self.np.array([sum(value[k]) for k in vkeys]))
+        return f2
+
+    def getListMetricOrder(self, variables, selector, paramSets, metric = None):
+        f = self.getRawMetricOrder(variables, selector, paramSets, metric = metric)
+        f2 = {}
+        for key, value in f.iteritems():
+            vkeys = sorted(value.keys())
+            f2[key] = (self.np.array(zip(*vkeys)), self.np.array([value[k] for k in vkeys]))
+        return f2
+
+
+    def getRawMetricOrder(self, variables, selector, paramSets, metric = None):
+        f = {}
+        if metric is None:
+            metric = self.newMetric()
+        for pset in paramSets:
+            keyp = convert(pset)
+            for exp in self.data:
+                if self.selectParams(exp, dict(selector.items() + pset.items()), variables):
+                    key, s = metric['call'](exp, variables, **metric['kwargs'])
+                    if not f.has_key(key):
+                        f[key] = {}
+                    if not f[key].has_key(keyp):
+                        f[key][keyp] = []
+                    f[key][keyp].append(s)
+                    # if self.selectParams(exp, selector.items(), dict(variables + pset.items())):
+                    # key, s = metric['call'](exp, variables, **metric['kwargs'])
+                    # if not f.has_key(key):
+                    # f[key] = []
+                    # f[key].append(s)
+        # getattr(var, key)
+        f2 = {}
+        import operator
+
+        for var, values in f.iteritems():
+            sorted_var = sorted([(v, key) for key, value in values.iteritems() for v in value], key = operator.itemgetter(0))
+            # print sorted_var
+            # sorted_var = sorted(value.iteritems(), key = operator.itemgetter(1))
+            s = 0
+            currentScore = 0
+            # tot = float(len(sorted_var))
+            for i, (score, param) in enumerate(sorted_var):
+                if not f2.has_key(param):
+                    f2[param] = {}
+                if not f2[param].has_key(var):
+                    f2[param][var] = []
+                if score > currentScore:
+                    currentScore = score
+                    s += 1
+                f2[param][var].append(s)
+        return f2
+
+    def getTopoMetrics(self, variables, selector):
+        import os
+
+        metric = self.newMetric()
+        f = {}
+        for exp in self.data:
+            if self.selectParams(exp, selector, variables):
+                topo = os.path.basename(exp['topoFile']).replace(".json", "").replace('nox-', '')
+                if not f.has_key(topo):
+                    f[topo] = {}
+                key, s = metric['call'](exp, variables, **metric['kwargs'])
+                if not f[topo].has_key(key):
+                    f[topo][key] = []
+                f[topo][key].append(s)
+
+        f2 = {}
+        for topo, data in f.iteritems():
+            f2[topo] = self._mergeRawData(data)
+
+        return f2
+
+
+    def _mergeRawData(self, data):
         y = []
         dev = []
         err = []
@@ -713,9 +883,8 @@ class LinkPlotter(Plotter):
             'kwargs': kwargs if kwargs is not None else {}
         }
 
-    def compareMetrics(self, variables = None, grouping = None, metrics = None, title = None):
-        log.output("Making new graph MetricSelection with variables : %s, grouping : %s\n" % (
-            self.printVariables(variables), self.printParams(grouping)))
+    @logGraph
+    def compareMetrics(self, variables = None, grouping = None, metrics = None, annotate = True, title = None):
 
         if metrics is None:
             metrics = self.newMetric()
@@ -744,67 +913,140 @@ class LinkPlotter(Plotter):
                             color = self.gr.getColor(stp),
                             alpha = self.alpha
                 )
-                for i, num in enumerate(nsamples):
-                    self.gr.annotate(num,
-                                     xy = (x[i] + offset + width / 2.0, metric[i] / 2.0),
-                                     # textcoords = 'offset points',
-                                     # xytext = (4, 4),
-                                     ha = 'center',
-                                     va = 'center'
-                    )
-                # self.gr.subplot(3, 1, 2)
-                # self.gr.bar(x + offset, relerr,
-                # width = width,
-                # # marker = self.gr.getMarker(str(paramSet) + stp),
-                # label = stp,
-                # color = self.gr.getColor(stp), alpha = self.alpha
-                # )
-                # self.gr.subplot(3, 1, 3)
-                # self.gr.bar(x + offset, dev,
-                # width = width,
-                # # marker = self.gr.getMarker(str(paramSet) + stp),
-                #             label = stp,
-                #             color = self.gr.getColor(stp), alpha = self.alpha
-                # )
+                if annotate:
+                    for i, num in enumerate(nsamples):
+                        self.gr.annotate(num,
+                                         xy = (x[i] + offset + width / 2.0, metric[i] / 2.0),
+                                         # textcoords = 'offset points',
+                                         # xytext = (4, 4),
+                                         ha = 'center',
+                                         va = 'center'
+                        )
                 offset += width
         if plot:
             self.gr.subplot(3, 1, 1)
             self.setMargins()
             self.gr.decorate(g_xlabel = self.printVariables(variables),
-                             g_ylabel = "Metric",
+                             g_ylabel = "Metric value",
                              g_grid = True,
-                             g_title = title if title else self.wrapTitle("Metric for %s with %s " % (self.printVariables(variables), self.printParams(grouping))))
+                             g_title = title if title else self.printTitle(
+                                 "Comparison of metrics %s wrt {variables} {grouping}" % self.printMetrics(metrics),
+                                 self.printVariables(variables),
+                                 self.printParams(grouping))
+            )
             self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
-            # ya.set_major_locator(MaxNLocator(integer = True))
-
-            # self.gr.subplot(3, 1, 2)
-            # self.setMargins()
-            # self.gr.decorate(g_xlabel = self.printVariables(variables),
-            # g_ylabel = "Relative incertitude",
-            # g_grid = True,
-            # g_title = self.wrapTitle(
-            # "Relative incertitude (std/metric) for %s with %s " % (
-            # self.printVariables(variables), self.printParams(grouping))))
-            # self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
-            #
-            # self.gr.subplot(3, 1, 3)
-            # self.setMargins()
-            # self.gr.decorate(g_xlabel = self.printVariables(variables),
-            # g_ylabel = "Absolute incertitude",
-            #                  g_grid = True,
-            #                  g_title = self.wrapTitle(
-            #                      "Absolute incertitude for %s with %s " % (self.printVariables(variables), self.printParams(grouping))))
-            # self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
 
             fig = self.gr.gcf()
-            fig.set_size_inches(12, 8)
+            fig.set_size_inches(self.graphWidth, self.graphHeight())
             self.pdf.savefig(bbox_inches = 'tight')  # 'checks/delay.pdf', format = 'pdf', )
+            self.gr.close()
+
+
+    @logGraph
+    def cdfSelectionMetrics(self, variables = None, parameters = None, grouping = None, parameterSetSelection = None, electionMethod = None,
+                            title = None):
+        paramSets = self.getParamSet(parameters)
+        if callable(parameterSetSelection):
+            paramSets = parameterSetSelection(paramSets)
+
+        if not isinstance(electionMethod, collections.Iterable):
+            electionMethod = [electionMethod]
+        plot = False
+        graphs = {}
+        for p in electionMethod:
+            stp = 'selection = %s' % p.__name__
+            f = self.getListMetricOrder(variables, grouping, paramSets)
+            for tupleParamSet, values in f.iteritems():
+                paramSet = tupleParamSet._asdict()
+                x = values[0]
+                if len(x) > 0 and len(x[0]) > 0:
+                    x = x[0]
+                    y = values[1]
+                    plot = True
+                    for i, xi in enumerate(x):
+                        if not graphs.has_key(xi):
+                            graphs[xi] = len(graphs) + 1
+                        cgr = graphs[xi]
+                        self.gr.subplot(len(graphs), 1, cgr)
+                        # self.gr.subplot(1, 1, 1)
+                        s = self.np.sort(y[i])
+                        s = self.jitter(s)
+                        yvals = 1 - (self.np.arange(len(s)) + 0.5) / float(len(s))
+                        self.gr.plot(s, yvals,
+                                     color = self.gr.getColor(str(paramSet) + stp),
+                                     label = self.wrapLegend('%s' % self.printParams(paramSet, stp))
+                        )
+
+        if plot:
+            for xi, ngr in graphs.iteritems():
+                self.gr.subplot(len(graphs), 1, ngr)
+                self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
+                self.gr.decorate(g_xlabel = "Metric score",
+                                 g_ylabel = "CDF",
+                                 g_grid = True,
+                                 g_title = title if title else self.printTitle(
+                                     "CDF of metric scores for {variables}=%s" % xi,
+                                     self.printVariables(variables))
+                )
+
+            fig = self.gr.gcf()
+            fig.set_size_inches(self.graphWidth, self.graphHeight(len(graphs)))
+            self.pdf.savefig(bbox_inches = 'tight')
         self.gr.close()
 
 
+    @logGraph
+    def compareOrderSelectionMetrics(self, variables = None, parameters = None, grouping = None, parameterSetSelection = None, electionMethod = None,
+                                     title = None):
+        paramSets = self.getParamSet(parameters)
+        if callable(parameterSetSelection):
+            paramSets = parameterSetSelection(paramSets)
+
+        if not isinstance(electionMethod, collections.Iterable):
+            electionMethod = [electionMethod]
+        plot = False
+        basewidthfact = 0.9
+        basewidth = 1
+        width = basewidth
+        offset = 0
+        for p in electionMethod:
+            stp = 'selection = %s' % p.__name__
+            f = self.getSumMetricOrder(variables, grouping, paramSets)
+            basewidth = basewidthfact * (1.0 / len(f))
+            for tupleParamSet, values in f.iteritems():
+                paramSet = tupleParamSet._asdict()
+                x = values[0]
+                if len(x) > 0 and len(x[0]) > 0:
+                    x = x[0]
+                    y = values[1]
+                    width = (x[1:] - x[:-1]).min() * basewidth
+                    plot = True
+                    self.gr.subplot(3, 1, 1)
+                    self.gr.bar(x + offset, y,
+                                width = width,
+                                label = self.wrapLegend('%s' % self.printParams(paramSet, stp)),
+                                color = self.gr.getColor(str(paramSet) + stp),
+                                alpha = self.alpha
+                    )
+                offset += width
+        if plot:
+            self.gr.subplot(3, 1, 1)
+            self.setMargins()
+            self.gr.decorate(g_xlabel = self.printVariables(variables),
+                             g_ylabel = "Metric Score (order)",
+                             g_grid = True,
+                             g_title = title if title else self.printTitle(
+                                 "Order of metrics for {variables} {grouping}", self.printVariables(variables), self.printParams(grouping))
+            )
+            self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
+
+            fig = self.gr.gcf()
+            fig.set_size_inches(self.graphWidth, self.graphHeight())
+            self.pdf.savefig(bbox_inches = 'tight')
+        self.gr.close()
+
+    @logGraph
     def barLinksMetric(self, variables = None, parameters = None, grouping = None, parameterSetSelection = None, electionMethod = None, title = None):
-        log.output("Making new graph Metric with variables : %s, parameters : %s, grouping : %s\n" % (
-            self.printVariables(variables), self.printParams(parameters), self.printParams(grouping)))
 
         paramSets = self.getParamSet(parameters)
         if callable(parameterSetSelection):
@@ -830,7 +1072,7 @@ class LinkPlotter(Plotter):
                     self.gr.bar(x + offset, metric, yerr = dev,
                                 width = width,
                                 # marker = self.gr.getMarker(str(paramSet) + stp),
-                                label = '%s' % self.printParams(paramSet, stp),
+                                label = self.wrapLegend('%s' % self.printParams(paramSet, stp)),
                                 color = self.gr.getColor(str(paramSet) + stp),
                                 alpha = self.alpha
                     )
@@ -846,14 +1088,14 @@ class LinkPlotter(Plotter):
                     self.gr.bar(x + offset, relerr,
                                 width = width,
                                 # marker = self.gr.getMarker(str(paramSet) + stp),
-                                label = '%s' % self.printParams(paramSet, stp),
+                                label = self.wrapLegend('%s' % self.printParams(paramSet, stp)),
                                 color = self.gr.getColor(str(paramSet) + stp), alpha = self.alpha
                     )
                     self.gr.subplot(3, 1, 3)
                     self.gr.bar(x + offset, dev,
                                 width = width,
                                 # marker = self.gr.getMarker(str(paramSet) + stp),
-                                label = '%s' % self.printParams(paramSet, stp),
+                                label = self.wrapLegend('%s' % self.printParams(paramSet, stp)),
                                 color = self.gr.getColor(str(paramSet) + stp), alpha = self.alpha
                     )
                     offset += width
@@ -863,41 +1105,46 @@ class LinkPlotter(Plotter):
             self.gr.decorate(g_xlabel = self.printVariables(variables),
                              g_ylabel = "Metric",
                              g_grid = True,
-                             g_title = title if title else self.wrapTitle("Metric for %s with %s " % (self.printVariables(variables), self.printParams(grouping))))
+                             g_title = title if title else self.printTitle(
+                                 "Metric for {variables} {grouping}", self.printVariables(variables), self.printParams(grouping))
+            )
             self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
             # ya.set_major_locator(MaxNLocator(integer = True))
 
             self.gr.subplot(3, 1, 2)
             self.setMargins()
             self.gr.decorate(g_xlabel = self.printVariables(variables),
-                             g_ylabel = "Relative incertitude",
+                             g_ylabel = "Coefficient of variation",
                              g_grid = True,
-                             g_title = title if title else self.wrapTitle(
-                                 "Relative incertitude (std/metric) for %s with %s " % (
-                                     self.printVariables(variables), self.printParams(grouping))))
+                             g_title = title if title else self.printTitle(
+                                 "Coefficient of variation (std/metric) for {variables} {grouping}",
+                                 self.printVariables(variables), self.printParams(grouping))
+            )
             self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
 
             self.gr.subplot(3, 1, 3)
             self.setMargins()
             self.gr.decorate(g_xlabel = self.printVariables(variables),
-                             g_ylabel = "Absolute incertitude",
+                             g_ylabel = "Absolute incertitude (std)",
                              g_grid = True,
-                             g_title = title if title else self.wrapTitle(
-                                 "Absolute incertitude for %s with %s " % (self.printVariables(variables), self.printParams(grouping))))
+                             g_title = title if title else self.printTitle(
+                                 "Absolute incertitude (std) for {variables} {grouping}", self.printVariables(variables), self.printParams(grouping))
+            )
             self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
 
             fig = self.gr.gcf()
-            fig.set_size_inches(15, 25)
+            fig.set_size_inches(self.graphWidth, 3 * self.graphHeight())
             self.pdf.savefig(bbox_inches = 'tight')  # 'checks/delay.pdf', format = 'pdf', )
         self.gr.close()
 
-    def bar3dLinksMetric(self, variables = None, parameters = None, grouping = None, parameterSetSelection = None, electionMethod = None, title = None):
-        log.output("Making new graph Metric with variables : %s, parameters : %s, grouping : %s\n" % (
-            self.printVariables(variables), self.printParams(parameters), self.printParams(grouping)))
+    @logGraph
+    def bar3dLinksMetric(self, variables = None, parameters = None, grouping = None, parameterSetSelection = None, electionMethod = None,
+                         title = None):
+
 
         paramSets = self.getParamSet(parameters)
         if callable(parameterSetSelection):
-            paramSets = parameterSetSelection(paramSets)
+            paramSets = sorted(parameterSetSelection(paramSets))
 
         if not isinstance(electionMethod, collections.Iterable):
             electionMethod = [electionMethod]
@@ -924,7 +1171,7 @@ class LinkPlotter(Plotter):
                     axes[1].plot(xs = X + offset + width / 2.0, ys = Y, zs = metric,
                                  zdir = 'z',
                                  marker = self.gr.getMarker(str(paramSet) + stp),
-                                 label = '%s' % self.printParams(paramSet, stp),
+                                 label = self.wrapLegend('%s' % self.printParams(paramSet, stp)),
                                  color = self.gr.getColor(str(paramSet) + stp),
                                  linestyle = 'None',
                                  alpha = self.alpha
@@ -946,7 +1193,7 @@ class LinkPlotter(Plotter):
                     axes[2].plot(xs = X + offset + width / 2.0, ys = Y, zs = relerr,
                                  zdir = 'z',
                                  marker = self.gr.getMarker(str(paramSet) + stp),
-                                 label = '%s' % self.printParams(paramSet, stp),
+                                 label = self.wrapLegend('%s' % self.printParams(paramSet, stp)),
                                  color = self.gr.getColor(str(paramSet) + stp),
                                  linestyle = 'None',
                                  alpha = self.alpha
@@ -961,7 +1208,7 @@ class LinkPlotter(Plotter):
                     axes[3].plot(xs = X + offset + width / 2.0, ys = Y, zs = dev,
                                  zdir = 'z',
                                  marker = self.gr.getMarker(str(paramSet) + stp),
-                                 label = '%s' % self.printParams(paramSet, stp),
+                                 label = self.wrapLegend('%s' % self.printParams(paramSet, stp)),
                                  color = self.gr.getColor(str(paramSet) + stp),
                                  linestyle = 'None',
                                  alpha = self.alpha
@@ -981,25 +1228,28 @@ class LinkPlotter(Plotter):
                              g_xlabel = xlab,
                              g_ylabel = ylab,
                              g_zlabel = "Metric",
-                             g_title = title if title else self.wrapTitle(
-                                 "Metric for %s with %s " % (self.printVariables(variables), self.printParams(grouping))))
+                             g_title = title if title else self.printTitle(
+                                 "Metric for {variables} {grouping}", self.printVariables(variables), self.printParams(grouping))
+            )
             axes[1].legend(loc = 'center left', bbox_to_anchor = (1, 0.5), numpoints = 1)
 
             self.gr.decorate(axes = axes[2],
                              g_xlabel = xlab,
                              g_ylabel = ylab,
-                             g_zlabel = "Relative incertitude",
-                             g_title = title if title else self.wrapTitle(
-                                 "Relative incertitude (std/metric) for %s with %s " % (self.printVariables(variables), self.printParams(
-                                     grouping))))
+                             g_zlabel = "Coefficient of variation ",
+                             g_title = title if title else self.printTitle(
+                                 "Coefficient of variation (std/metric) for {variables} {grouping}", self.printVariables(variables), self.printParams(
+                                     grouping))
+            )
             axes[2].legend(loc = 'center left', bbox_to_anchor = (1, 0.5), numpoints = 1)
             #
             self.gr.decorate(axes = axes[3],
                              g_xlabel = xlab,
                              g_ylabel = ylab,
                              g_zlabel = "Absolute incertitude",
-                             g_title = title if title else self.wrapTitle(
-                                 "Absolute incertitude for %s with %s " % (self.printVariables(variables), self.printParams(grouping))))
+                             g_title = title if title else self.printTitle(
+                                 "Absolute incertitude (std) for {variables} {grouping}", self.printVariables(variables), self.printParams(grouping))
+            )
             axes[3].legend(loc = 'center left', bbox_to_anchor = (1, 0.5), numpoints = 1)
             # if azimut is not None or elevation is not None:
             # for ax in axes.itervalues():
@@ -1007,16 +1257,16 @@ class LinkPlotter(Plotter):
             # ax.view_init(elev = elevation, azim = azimut)
 
             fig = self.gr.gcf()
-            fig.set_size_inches(15, 25)
-            self.pdf.savefig(bbox_inches = 'tight')  # 'checks/delay.pdf', format = 'pdf', )
+            fig.set_size_inches(12, 15)
+            self.pdf.savefig(bbox_inches = 'tight')
         self.gr.close()
 
-    def plotLinksMetric(self, variables = None, parameters = None, grouping = None, parameterSetSelection = None, electionMethod = None, title = None):
-        log.output("Making new graph Metric with variables : %s, parameters : %s, grouping : %s\n" % (
-            self.printVariables(variables), self.printParams(parameters), self.printParams(grouping)))
+    @logGraph
+    def plotLinksMetric(self, variables = None, parameters = None, grouping = None, parameterSetSelection = None, electionMethod = None,
+                        title = None):
         paramSets = self.getParamSet(parameters)
         if callable(parameterSetSelection):
-            paramSets = parameterSetSelection(paramSets)
+            paramSets = sorted(parameterSetSelection(paramSets))
 
         if not isinstance(electionMethod, collections.Iterable):
             electionMethod = [electionMethod]
@@ -1035,7 +1285,7 @@ class LinkPlotter(Plotter):
                     self.gr.subplot(3, 1, 1)
                     self.gr.errorbar(x, metric, yerr = dev,
                                      marker = self.gr.getMarker(str(paramSet) + stp),
-                                     label = '%s' % self.printParams(paramSet, stp),
+                                     label = self.wrapLegend('%s' % self.printParams(paramSet, stp)),
                                      color = self.gr.getColor(str(paramSet) + stp),
                                      alpha = self.alpha
                     )
@@ -1045,7 +1295,7 @@ class LinkPlotter(Plotter):
                     self.gr.subplot(3, 1, 2)
                     self.gr.plot(x, relerr,
                                  marker = self.gr.getMarker(str(paramSet) + stp),
-                                 label = '%s' % self.printParams(paramSet, stp),
+                                 label = self.wrapLegend('%s' % self.printParams(paramSet, stp)),
                                  color = self.gr.getColor(str(paramSet) + stp), alpha = self.alpha
                     )
                     for i, num in enumerate(nsamples):
@@ -1056,7 +1306,7 @@ class LinkPlotter(Plotter):
                     self.gr.subplot(3, 1, 3)
                     self.gr.plot(x, dev,
                                  marker = self.gr.getMarker(str(paramSet) + stp),
-                                 label = '%s' % self.printParams(paramSet, stp),
+                                 label = self.wrapLegend('%s' % self.printParams(paramSet, stp)),
                                  color = self.gr.getColor(str(paramSet) + stp), alpha = self.alpha
                     )
             if plot:
@@ -1065,26 +1315,30 @@ class LinkPlotter(Plotter):
                 self.gr.decorate(g_xlabel = self.printVariables(variables),
                                  g_ylabel = "Metric",
                                  g_grid = True,
-                                 g_title = title if title else self.wrapTitle("Metric for %s with %s " % (self.printVariables(variables), self.printParams(grouping))))
+                                 g_title = title if title else self.printTitle(
+                                     "Metric for {variables} {grouping}", self.printVariables(variables), self.printParams(grouping))
+                )
                 self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
 
                 self.gr.subplot(3, 1, 2)
                 self.setMargins()
                 self.gr.decorate(g_xlabel = self.printVariables(variables),
-                                 g_ylabel = "Relative incertitude",
+                                 g_ylabel = "Coefficient of variation",
                                  g_grid = True,
-                                 g_title = title if title else self.wrapTitle(
-                                     "Relative incertitude (std/metric) for %s with %s " % (
-                                         self.printVariables(variables), self.printParams(grouping))))
+                                 g_title = title if title else self.printTitle(
+                                     "Coefficient of variation (std/metric) for {variables} {grouping}",
+                                     self.printVariables(variables), self.printParams(grouping))
+                )
                 self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
 
                 self.gr.subplot(3, 1, 3)
                 self.setMargins()
                 self.gr.decorate(g_xlabel = self.printVariables(variables),
-                                 g_ylabel = "Absolute incertitude",
+                                 g_ylabel = "Absolute incertitude (std)",
                                  g_grid = True,
-                                 g_title = title if title else self.wrapTitle(
-                                     "Absolute incertitude for %s with %s " % (self.printVariables(variables), self.printParams(grouping))))
+                                 g_title = title if title else self.printTitle(
+                                     "Absolute incertitude for {variables} {grouping}", self.printVariables(variables), self.printParams(grouping))
+                )
                 self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
         if plot:
             fig = self.gr.gcf()
@@ -1092,27 +1346,7 @@ class LinkPlotter(Plotter):
             self.pdf.savefig(bbox_inches = 'tight')  # 'checks/delay.pdf', format = 'pdf', )
         self.gr.close()
 
-    def getTopoMetrics(self, variables, selector):
-        import os
-
-        metric = self.newMetric()
-        f = {}
-        for exp in self.data:
-            if self.selectParams(exp, selector, variables):
-                topo = os.path.basename(exp['topoFile']).replace(".json", "").replace('nox-', '')
-                if not f.has_key(topo):
-                    f[topo] = {}
-                key, s = metric['call'](exp, variables, **metric['kwargs'])
-                if not f[topo].has_key(key):
-                    f[topo][key] = []
-                f[topo][key].append(s)
-
-        f2 = {}
-        for topo, data in f.iteritems():
-            f2[topo] = self.mergeRawData(data)
-
-        return f2
-
+    @logGraph
     def compareTopos(self, variables = None, grouping = None, title = None):
         plot = False
         f = self.getTopoMetrics(variables, grouping)
@@ -1142,12 +1376,12 @@ class LinkPlotter(Plotter):
                     # self.gr.annotate(num,
                     # xy = (x[i], relerr[i]),
                     # textcoords = 'offset points',
-                    #                      xytext = (4, 4))
+                    # xytext = (4, 4))
                     # self.gr.subplot(3, 1, 3)
                     # self.gr.plot(x, dev,
-                    #              marker = self.gr.getMarker(str(paramSet) + stp),
-                    #              label = '%s' % self.printParams(paramSet, stp),
-                    #              color = self.gr.getColor(str(paramSet) + stp), alpha = self.alpha
+                    # marker = self.gr.getMarker(str(paramSet) + stp),
+                    # label = '%s' % self.printParams(paramSet, stp),
+                    # color = self.gr.getColor(str(paramSet) + stp), alpha = self.alpha
                     # )
         if plot:
             self.gr.subplot(3, 1, 1)
@@ -1155,7 +1389,9 @@ class LinkPlotter(Plotter):
             self.gr.decorate(g_xlabel = self.printVariables(variables),
                              g_ylabel = "Metric",
                              g_grid = True,
-                             g_title = title if title else self.wrapTitle("Metric for %s with %s" % (self.printVariables(variables), self.printParams(grouping))))
+                             g_title = title if title else self.printTitle(
+                                 "Topology comparison for {variables} {grouping}", self.printVariables(variables), self.printParams(grouping))
+            )
             self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
 
             # self.gr.subplot(3, 1, 2)
@@ -1172,13 +1408,13 @@ class LinkPlotter(Plotter):
             # self.setMargins()
             # self.gr.decorate(g_xlabel = self.printVariables(variables),
             # g_ylabel = "Absolute incertitude",
-            #                  g_grid = True,
-            #                  g_title = self.wrapTitle(
-            #                      "Absolute incertitude for %s with %s " % (self.printVariables(variables), self.printParams(grouping))))
+            # g_grid = True,
+            # g_title = self.wrapTitle(
+            # "Absolute incertitude for %s with %s " % (self.printVariables(variables), self.printParams(grouping))))
             # self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
         if plot:
             fig = self.gr.gcf()
-            fig.set_size_inches(10, 8)
+            fig.set_size_inches(self.graphWidth, self.graphHeight())
             self.pdf.savefig(bbox_inches = 'tight')  # 'checks/delay.pdf', format = 'pdf', )
         self.gr.close()
 
@@ -1210,13 +1446,14 @@ class SetPlotter(Plotter):
         # err = d[2]
         return self.np.array(x), self.np.array(rand), self.np.array(dev)
 
+    @logGraph
     def barRandMeasure(self, variables = None, parameters = None, grouping = None, parameterSetSelection = None, title = None):
-        log.output("Making new graph Bar Rand Index with variables : %s, parameters : %s, grouping : %s\n" % (
-            self.printVariables(variables), self.printParams(parameters), self.printParams(grouping)))
+        # log.output("Making new graph Bar Rand Index with variables : %s, parameters : %s, grouping : %s\n" % (
+        # self.printVariables(variables), self.printParams(parameters), self.printParams(grouping)))
 
         paramSets = self.getParamSet(parameters)
         if callable(parameterSetSelection):
-            paramSets = parameterSetSelection(paramSets)
+            paramSets = sorted(parameterSetSelection(paramSets))
 
         plot = False
         basewidth = (1.0 / len(paramSets))
@@ -1233,7 +1470,7 @@ class SetPlotter(Plotter):
                 self.gr.subplot(2, 1, 1)
                 self.gr.bar(x + offset, rand, yerr = dev,
                             width = width,
-                            label = '%s' % self.printParams(paramSet),
+                            label = self.wrapLegend('%s' % self.printParams(paramSet, stp)),
                             color = self.gr.getColor(str(paramSet)),
                             alpha = self.alpha
                 )
@@ -1245,13 +1482,13 @@ class SetPlotter(Plotter):
                 # ha = 'center',
                 # va = 'center'
                 # )
-                self.gr.subplot(2, 1, 2)
-                self.gr.bar(x + offset, dev,
-                            width = width,
-                            # marker = self.gr.getMarker(str(paramSet) + stp),
-                            label = '%s' % self.printParams(paramSet),
-                            color = self.gr.getColor(str(paramSet)), alpha = self.alpha
-                )
+                # self.gr.subplot(2, 1, 2)
+                # self.gr.bar(x + offset, dev,
+                # width = width,
+                # # marker = self.gr.getMarker(str(paramSet) + stp),
+                # label = '%s' % self.printParams(paramSet),
+                # color = self.gr.getColor(str(paramSet)), alpha = self.alpha
+                # )
                 offset += width
         if plot:
             self.gr.subplot(2, 1, 1)
@@ -1259,29 +1496,31 @@ class SetPlotter(Plotter):
             self.gr.decorate(g_xlabel = self.printVariables(variables),
                              g_ylabel = "Rand Index",
                              g_grid = True,
-                             g_title = title if title else self.wrapTitle("Metric for %s with %s " % (self.printVariables(variables), self.printParams(grouping))))
+                             g_title = title if title else self.printTitle(
+                                 "Rand index for {variables} {grouping}", self.printVariables(variables), self.printParams(grouping))
+            )
             self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
             # ya.set_major_locator(MaxNLocator(integer = True))
 
-            self.gr.subplot(2, 1, 2)
-            self.setMargins()
-            self.gr.decorate(g_xlabel = self.printVariables(variables),
-                             g_ylabel = "Std dev",
-                             g_grid = True,
-                             g_title = title if title else self.wrapTitle(
-                                 "Standart deviation for %s with %s " % (
-                                     self.printVariables(variables), self.printParams(grouping))))
-            self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
+            # self.gr.subplot(2, 1, 2)
+            # self.setMargins()
+            # self.gr.decorate(g_xlabel = self.printVariables(variables),
+            # g_ylabel = "Std dev",
+            # g_grid = True,
+            # g_title = title if title else self.wrapTitle(
+            # "Standart deviation for %s with %s " % (
+            # self.printVariables(variables), self.printParams(grouping))))
+            # self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
 
             fig = self.gr.gcf()
-            fig.set_size_inches(15, 17)
+            fig.set_size_inches(self.graphWidth, self.graphHeight())
             self.pdf.savefig(bbox_inches = 'tight')  # 'checks/delay.pdf', format = 'pdf', )
         self.gr.close()
 
-
+    @logGraph
     def bar3dRandMeasure(self, variables = None, parameters = None, grouping = None, parameterSetSelection = None, title = None):
-        log.output("Making new graph Bar 3D rand index with variables : %s, parameters : %s, grouping : %s\n" % (
-            self.printVariables(variables), self.printParams(parameters), self.printParams(grouping)))
+        # log.output("Making new graph Bar 3D rand index with variables : %s, parameters : %s, grouping : %s\n" % (
+        # self.printVariables(variables), self.printParams(parameters), self.printParams(grouping)))
 
         paramSets = self.getParamSet(parameters)
         if callable(parameterSetSelection):
@@ -1306,7 +1545,7 @@ class SetPlotter(Plotter):
                 axes[1].plot(xs = X + offset + width / 2.0, ys = Y, zs = metric,
                              zdir = 'z',
                              marker = self.gr.getMarker(str(paramSet)),
-                             label = '%s' % self.printParams(paramSet),
+                             label = self.wrapLegend('%s' % self.printParams(paramSet, stp)),
                              color = self.gr.getColor(str(paramSet)),
                              linestyle = 'None',
                              alpha = self.alpha
@@ -1321,7 +1560,7 @@ class SetPlotter(Plotter):
                 axes[2].plot(xs = X + offset + width / 2.0, ys = Y, zs = dev,
                              zdir = 'z',
                              marker = self.gr.getMarker(str(paramSet)),
-                             label = '%s' % self.printParams(paramSet),
+                             label = self.wrapLegend('%s' % self.printParams(paramSet, stp)),
                              color = self.gr.getColor(str(paramSet)),
                              linestyle = 'None',
                              alpha = self.alpha
@@ -1341,17 +1580,19 @@ class SetPlotter(Plotter):
                              g_xlabel = xlab,
                              g_ylabel = ylab,
                              g_zlabel = "Rand Index",
-                             g_title = title if title else self.wrapTitle(
-                                 "Rand Index for %s with %s " % (self.printVariables(variables), self.printParams(grouping))))
+                             g_title = title if title else self.printTitle(
+                                 "Rand Index for {variables} {grouping}", self.printVariables(variables), self.printParams(grouping))
+            )
             axes[1].legend(loc = 'center left', bbox_to_anchor = (1, 0.5), numpoints = 1)
 
             self.gr.decorate(axes = axes[2],
                              g_xlabel = xlab,
                              g_ylabel = ylab,
                              g_zlabel = "Std dev",
-                             g_title = self.wrapTitle(
-                                 "Std deviation for %s with %s " % (self.printVariables(variables), self.printParams(
-                                     grouping))))
+                             g_title = self.printTitle(
+                                 "Std deviation for {variables} {grouping}", self.printVariables(variables), self.printParams(
+                                     grouping))
+            )
             axes[2].legend(loc = 'center left', bbox_to_anchor = (1, 0.5), numpoints = 1)
             #
             # if azimut is not None or elevation is not None:
