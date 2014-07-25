@@ -26,7 +26,7 @@ class _PyplotGraph(type):
         return cls.plt.subplot(*args, projection = '3d')
 
     def decorate(cls, axes = None, g_filter = False, g_grid = False, g_xtickslab = None, g_xticks = None,
-                 g_xlabel = None, g_ylabel = None, g_zlabel = None, g_title = None, g_xgrid = False, g_ygrid = False,
+                 g_xlabel = None, g_ylabel = None, g_zlabel = None, g_title = None, g_xgrid = False, g_ygrid = False, g_ylogscale = False, g_ylim = None,
                  **kwargs):
 
         if g_filter:
@@ -59,6 +59,11 @@ class _PyplotGraph(type):
             # cls.xticks(g_xticks)
         if g_xtickslab:
             ax.set_xticklabels(g_xtickslab)
+        if g_ylogscale:
+            cls.plt.yscale('log', nonposy='clip')
+            # ax.set_yscale('log', nonposy='clip')
+        if g_ylim:
+            cls.plt.ylim(g_ylim)
 
 
 import collections
