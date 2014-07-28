@@ -339,12 +339,14 @@ def makeGraphsLinks(plotter):
             # 'degree': ''
         },
         parameterSetSelection = ge1,
-        metrics = defaultMetric,
+        # metrics = defaultMetric,
         decoration = {
             'g_xlabel': "Number of measures",
             'g_title' : "Probability of finding target link in proposed links"
-        }
+        },
+        annotate = False
     )
+
 
     bestSampleSize = 50
     # compare link selection policy for sampleSize = max(previous)
@@ -361,7 +363,8 @@ def makeGraphsLinks(plotter):
             'g_ylogscale': True,
             'g_xlabel' : "Number of measures",
             'g_title' : "Probability of finding target link in proposed links"
-        }
+        },
+        annotate= False
     )
 
     # compare link selection policy for sampleSize = max(previous)
@@ -377,7 +380,8 @@ def makeGraphsLinks(plotter):
         decoration = {
             'g_xlabel': "Number of measures",
             'g_title': "Probability of finding target link in candidates when located between the root and the probe"
-        }
+        },
+        annotate = False
     )
 
 
@@ -393,12 +397,52 @@ def makeGraphsLinks(plotter):
             'g_xlabel': "depth of problem",
             'g_title' : "Impact of topology over probability"
         },
-        # metrics = defaultMetric
+        # metrics = defaultMetric,
+        annotate= False
     )
 
     # ========================================================================================== #
     # extras
     # ========================================================================================== #
+
+    #cfs of scores
+    plotter.cdfScores(
+        parameters = {},
+        grouping = {},
+        metrics = None,
+        decoration = {}
+    )
+
+
+    plotter.cdfScores(
+        parameters = {
+        },
+        grouping = {
+
+        },
+
+        metrics = (defaultMetric, plotter.newMetric(name = 'argmax-kn', call = plotter.metricGreater, kwargs = {'electionMethod': max,
+                                                                                                             'assumeLocation': True})),
+        decoration = {
+
+        }
+    )
+    plotter.cdfScores(
+        parameters = {
+            'sampleSize' : None
+        },
+        grouping = {
+
+        },
+        metrics = None,
+        decoration = {
+
+        }
+    )
+
+
+
+
     plotter.bar3dLinksMetric(
         variables = {
             'depth': None,
@@ -413,7 +457,7 @@ def makeGraphsLinks(plotter):
         grouping = {
         },
         parameterSetSelection = ge1,
-        metrics = defaultMetric
+        # metrics = defaultMetric
     )
 
     metrics2 = (
@@ -433,7 +477,8 @@ def makeGraphsLinks(plotter):
         grouping = {
             # 'sampleSize': bestSampleSize
         },
-        metrics = metrics2
+        metrics = metrics2,
+        annotate = False
     )
 
     # Compare selection metrics wrt sample size
@@ -646,7 +691,7 @@ class Plotter(object):
         return True
 
     @staticmethod
-    def printParams(params, addiionalString = None, removeZeros = True):
+    def printParams(params, additionalString = None, removeZeros = True):
         out = []
         for k, v in params.iteritems():
             if type(v) in (tuple, list):
@@ -656,8 +701,8 @@ class Plotter(object):
             if removeZeros and v:
                 out.append("%s=%s" % (k.replace("MetricWeight", ""), o))
         s = ", ".join(out)
-        if addiionalString is not None:
-            s = ", ".join((s, addiionalString))
+        if additionalString is not None and len(additionalString) > 0:
+            s = ", ".join((s, additionalString)) if len(s) > 0 else additionalString
         return s
 
     @staticmethod
@@ -670,7 +715,7 @@ class Plotter(object):
                 o = v
             out.append("%s" % o)
         s = ", ".join(out)
-        if addiionalString is not None:
+        if addiionalString is not None and len(addiionalString) > 0:
             s = ", ".join((s, addiionalString))
         return s
 
@@ -716,9 +761,9 @@ class Plotter(object):
         # array += jit
         return array + jit
 
-    def printTitle(self, title, variables, grouping = None):
+    def printTitle(self, title, variables = None, grouping = None):
         return self.wrapTitle(
-            title.format(variables = variables if len(variables) > 0 else "",
+            title.format(variables = variables if variables and len(variables) > 0 else "",
                          grouping = "with %s" % grouping if grouping is not None and len(grouping) > 0 else "")
         )
 
@@ -853,6 +898,11 @@ class LinkPlotter(Plotter):
         f = self.getRawLinksMetric(variables, selector, metric)
         return self._mergeRawData(f)
 
+    def getLinksMetricList(self, variables, selector, metric = None):
+        f = self.getRawLinksMetric(variables, selector, metric)
+
+        return f
+
     def getSumMetricOrder(self, variables, selector, paramSets, metric = None):
         f = self.getRawMetricOrder(variables, selector, paramSets, metric = metric)
         f2 = {}
@@ -952,7 +1002,7 @@ class LinkPlotter(Plotter):
 
         return self.np.array(x), self.np.array(y), self.np.array(dev), self.np.array(err), self.np.array(num)
 
-    def newMetric(self, name = 'max', call = None, kwargs = None):
+    def newMetric(self, name = 'argmax', call = None, kwargs = None):
         return {
             'name': name,
             'call': call if call is not None else self.metricGreater,
@@ -1019,6 +1069,51 @@ class LinkPlotter(Plotter):
             self.pdf.savefig(bbox_inches = 'tight')  # 'checks/delay.pdf', format = 'pdf', )
             self.gr.close()
 
+    @logGraph
+    def cdfScores(self, parameters = None, grouping = None, metrics = None,
+                            decoration = None):
+
+        if metrics is None:
+            metrics = self.newMetric()
+        useDefaultMetric = False
+        if type(metrics) is dict:
+            metrics = [metrics]
+            useDefaultMetric = True
+        plot = False
+        for metric in metrics:
+            if useDefaultMetric:
+                stp = ""
+            else:
+                stp = 'selection = %s' % metric['name']
+            f = self.getLinksMetricList(parameters, grouping, metric)
+            for paramSet, vals in f.iteritems():
+                x = vals
+                if len(x) > 0:
+                    plot = True
+                    s = self.np.sort(x)
+                    s = self.jitter(s)
+                    yvals = (self.np.arange(len(s)) + 0.5) / float(len(s))
+                    self.gr.subplot(1, 1, 1)
+                    self.gr.plot(s, yvals,
+                                 color = self.gr.getColor(str(paramSet) + stp),
+                                 label = self.wrapLegend('%s' % self.printParams(paramSet._asdict(), stp))
+                    )
+
+        if plot:
+            self.gr.subplot(1, 1, 1)
+            self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
+            self.decorate(decoration,
+                          g_xlabel = "Metric score",
+                          g_ylabel = "CDF",
+                          g_grid = True,
+                          g_title = self.printTitle(
+                              "CDF of metric scores")
+            )
+
+            fig = self.gr.gcf()
+            fig.set_size_inches(self.graphWidth, self.graphHeight())
+            self.pdf.savefig(bbox_inches = 'tight')
+        self.gr.close()
 
     @logGraph
     def cdfSelectionMetrics(self, variables = None, parameters = None, grouping = None, parameterSetSelection = None, electionMethod = None,
@@ -1130,14 +1225,16 @@ class LinkPlotter(Plotter):
 
     @logGraph
     def barLinksMetric(self, variables = None, parameters = None, grouping = None, parameterSetSelection = None, metrics = None,
-                       decoration = None):
+                       decoration = None, annotate = True):
 
+        useDefaultMetric = False
         paramSets = self.getParamSet(parameters)
         if callable(parameterSetSelection):
             paramSets = parameterSetSelection(paramSets)
 
         if metrics is None:
             metrics = self.newMetric()
+            useDefaultMetric = True
 
         if type(metrics) is dict:
             metrics = [metrics]
@@ -1148,7 +1245,10 @@ class LinkPlotter(Plotter):
         scaleDict = {}
         for paramSet in paramSets:
             for metric in metrics:
-                stp = 'selection = %s' % metric['name']
+                if useDefaultMetric:
+                    stp = ""
+                else:
+                    stp = 'selection = %s' % metric['name']
                 selector = dict(grouping.items() + paramSet.items())
                 x, metric, dev, relerr, nsamples = self.getLinksMetric(variables, selector, metric = metric)
                 if len(x) > 0:
@@ -1166,14 +1266,15 @@ class LinkPlotter(Plotter):
                                 alpha = self.alpha,
                                 log = bool(decoration.get('g_ylogscale')) if decoration is not None else False
                     )
-                    for i, num in enumerate(nsamples):
-                        self.gr.annotate(num,
-                                         xy = (x[i] + offset + width / 2.0, metric[i] / 2.0),
-                                         # textcoords = 'offset points',
-                                         # xytext = (4, 4),
-                                         ha = 'center',
-                                         va = 'center'
-                        )
+                    if annotate :
+                        for i, num in enumerate(nsamples):
+                            self.gr.annotate(num,
+                                             xy = (x[i] + offset + width / 2.0, metric[i] / 2.0),
+                                             # textcoords = 'offset points',
+                                             # xytext = (4, 4),
+                                             ha = 'center',
+                                             va = 'center'
+                            )
                     self.gr.subplot(3, 1, 2)
                     self.gr.bar(x + offset, relerr,
                                 width = width,
@@ -1457,75 +1558,61 @@ class LinkPlotter(Plotter):
         self.gr.close()
 
     @logGraph
-    def compareTopos(self, variables = None, grouping = None, decoration = None):
+    def compareTopos(self, variables = None, grouping = None, decoration = None, annotate = True):
         plot = False
         f = self.getTopoMetrics(variables, grouping)
+        nplots = 2
         for topo, data in f.iteritems():
             x, metric, dev, relerr, nsamples = data
             if len(x) > 0:
+                xmax = x.max()
                 x = x[0]
+                k = repr(x)
+                x = self.jitter(x)
                 plot = True
-                # x = self.jitter(x)
-                self.gr.subplot(1, 1, 1)
+
+                self.gr.subplot(nplots, 1, 1)
                 self.gr.errorbar(x, metric, yerr = dev,
-                                 marker = self.gr.getMarker(topo),
+                                 marker = self.gr.getMarker(topo+k),
                                  label = topo,
-                                 color = self.gr.getColor(topo),
+                                 color = self.gr.getColor(topo+k),
                                  alpha = self.alpha
                 )
-                for i, num in enumerate(nsamples):
-                    self.gr.annotate(num, xy = (x[i], metric[i]), textcoords = 'offset points', xytext = (4, 4))  # , xytext = (x[i],
-                    # metric[i])
-                    # self.gr.subplot(3, 1, 2)
-                    # self.gr.plot(x, relerr,
-                    # marker = self.gr.getMarker(topo),
-                    # label = '%s' % self.printParams(paramSet, stp),
-                    # color = self.gr.getColor(str(paramSet) + stp), alpha = self.alpha
-                    # )
-                    # for i, num in enumerate(nsamples):
-                    # self.gr.annotate(num,
-                    # xy = (x[i], relerr[i]),
-                    # textcoords = 'offset points',
-                    # xytext = (4, 4))
-                    # self.gr.subplot(3, 1, 3)
-                    # self.gr.plot(x, dev,
-                    # marker = self.gr.getMarker(str(paramSet) + stp),
-                    # label = '%s' % self.printParams(paramSet, stp),
-                    # color = self.gr.getColor(str(paramSet) + stp), alpha = self.alpha
-                    # )
+                if annotate:
+                    for i, num in enumerate(nsamples):
+                        self.gr.annotate(num, xy = (x[i], metric[i]), textcoords = 'offset points', xytext = (4, 4))  # , xytext = (x[i],
+                self.gr.subplot(nplots, 1, 2)
+
+                self.gr.errorbar(x/float(xmax), metric, yerr = dev,
+                                 marker = self.gr.getMarker(topo+k),
+                                 label = topo,
+                                 color = self.gr.getColor(topo+k),
+                                 alpha = self.alpha
+                )
         if plot:
-            self.gr.subplot(1, 1, 1)
+            self.gr.subplot(nplots, 1, 1)
             self.setMargins()
             self.decorate(decoration,
                           g_xlabel = self.printVariables(variables),
-                          g_ylabel = "Metric",
+                          g_ylabel = "Probability",
                           g_grid = True,
                           g_title = self.printTitle(
                               "Topology comparison for {variables} {grouping}", self.printVariables(variables), self.printParams(grouping))
             )
             self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
-
-            # self.gr.subplot(3, 1, 2)
-            # self.setMargins()
-            # self.gr.decorate(g_xlabel = self.printVariables(variables),
-            # g_ylabel = "Relative incertitude",
-            # g_grid = True,
-            # g_title = self.wrapTitle(
-            # "Relative incertitude (std/metric) for %s with %s " % (
-            # self.printVariables(variables), self.printParams(grouping))))
-            # self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
-            #
-            # self.gr.subplot(3, 1, 3)
-            # self.setMargins()
-            # self.gr.decorate(g_xlabel = self.printVariables(variables),
-            # g_ylabel = "Absolute incertitude",
-            # g_grid = True,
-            # g_title = self.wrapTitle(
-            # "Absolute incertitude for %s with %s " % (self.printVariables(variables), self.printParams(grouping))))
-            # self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
+            self.gr.subplot(nplots, 1, 2)
+            self.setMargins()
+            self.decorate(decoration,
+                          g_xlabel = self.printVariables(variables),
+                          g_ylabel = "Probability",
+                          g_grid = True,
+                          g_title = self.printTitle(
+                              "Topology comparison for {variables} {grouping}", self.printVariables(variables), self.printParams(grouping))
+                          )
+            self.gr.legend(loc = 'center left', bbox_to_anchor = (1, 0.5))
         if plot:
             fig = self.gr.gcf()
-            fig.set_size_inches(self.graphWidth, self.graphHeight())
+            fig.set_size_inches(self.graphWidth, self.graphHeight(nplots))
             self.pdf.savefig(bbox_inches = 'tight')  # 'checks/delay.pdf', format = 'pdf', )
         self.gr.close()
 
