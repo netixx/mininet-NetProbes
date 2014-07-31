@@ -72,7 +72,7 @@
 			"name" : "h1",
 			"options" : {
 				"ip" : "10.1.0.1",
-				"commandOpts" : "-id h1wa --wait 10 --add-prefix 10.1.0.2/32 --add-prefix 10.1.0.3/32 --add-prefix 10.1.2.4/32 --add-prefix 10.1.2.5/32 --add-prefix 10.2.1.6/32 --add-prefix 10.2.1.7/32 --watcher delay --commander",
+				"commandOpts" : "-id h1 --wait 10 --add-prefix 10.1.0.2/32 --add-prefix 10.1.0.3/32 --add-prefix 10.1.2.4/32 --add-prefix 10.1.2.5/32 --add-prefix 10.2.1.6/32 --add-prefix 10.2.1.7/32 --watcher delay=overlay-size=$overlay_size --commander",
 				"isXHost" : "True"
 			}
 		},
@@ -109,10 +109,8 @@
 		{
 			"name" : "h7",
 			"options" : {
-				"ip" : "10.2.1.7",
-				"commandOpts" : "-id h7wa --watcher delay=x=2",
-				"isXHost" : "True"
-			}	
+				"ip" : "10.2.1.7"
+			}
 		},
 		{
 			"name" : "h8",
