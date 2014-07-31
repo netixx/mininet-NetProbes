@@ -2,7 +2,7 @@
 """Generate tree topology"""
 import struct
 import socket
-
+import json
 
 def ip2int(addr):
     return struct.unpack("!I", socket.inet_aton(addr))[0]
@@ -30,11 +30,15 @@ out = {'links': [],
 
 
 def addLink(left, right):
-    out['links'].append(
-        {
-            'hosts': [left, right],
-            'name': linkname + linknamesep.join([left, right])
-        })
+    l = {
+        'hosts': [left, right],
+        'name': linkname + linknamesep.join([left, right])
+    }
+    if len(linkOptions) > 0:
+        l['options'] = {}
+        for op in linkOptions:
+            l['options'].update(op)
+    out['links'].append(l)
 
 
 def addSwitch(name):
@@ -49,14 +53,15 @@ def addSwitch(name):
 
 def addHost(name, ip):
     n = hostname + "%s" % name
-    out['hosts'].append(
-        {
-            'name': n,
-            'options': {
-                'ip': ip
-            }
+    o = {
+        'name': n,
+        'options': {
+            'ip': ip
         }
-    )
+    }
+    for opt in hostOptions:
+        o['options'].update(opt)
+    out['hosts'].append(o)
     return n
 
 
@@ -135,6 +140,18 @@ parser.add_argument('--prefix-depth',
                     default = 1,
                     help = "Each hop closer than prefix depth hop to another is in the same prefix")
 
+parser.add_argument('--host-option',
+                    dest = 'host_options',
+                    action = 'append',
+                    default = []
+)
+
+parser.add_argument('--link-options',
+                    dest = 'link_options',
+                    action = 'append',
+                    default = []
+)
+
 args = parser.parse_args()
 
 dep = args.depth
@@ -142,6 +159,8 @@ fan = args.fanout
 leafs = args.leafs if args.leafs >= 0 else fan
 swLeafs = args.sw_leafs
 pdep = args.pref_depth
+hostOptions = [json.loads(opt) for opt in args.host_options]
+linkOptions = [json.loads(opt) for opt in args.link_options]
 
 nhosts = fan ** (dep - 1) * leafs + swLeafs * fan ** (dep)
 availableIps = []
@@ -160,5 +179,4 @@ addTree(dep, fan, [])
 import sys
 print >>sys.stderr, nhosts
 
-import json
 print(json.dumps(out, sort_keys = True, indent = 4, separators = (',', ': ')))
