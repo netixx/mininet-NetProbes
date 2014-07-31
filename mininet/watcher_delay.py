@@ -309,7 +309,7 @@ def makeGraphsLinks(plotter):
 
 
     metrics1 = (
-        plotter.newMetric(name = 'naive 1/N', call = plotter.metricNaive),
+        plotter.newMetric(name = 'naive 1/L', call = plotter.metricNaive),
         plotter.newMetric(name = 'proportional', call = plotter.metricProbabilistic),
         plotter.newMetric(name = 'argmax', call = plotter.metricGreater, kwargs = {'electionMethod': max})
     )

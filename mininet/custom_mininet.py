@@ -183,7 +183,10 @@ def config(interface, params):
 
 
 def filterBwOpts(options):
-    return {k: v for k, v in options.iteritems() if isBwOption(k)}
+    o = {k: v for k, v in options.iteritems() if isBwOption(k)}
+    if o.has_key('bw'):
+        o['bw'] = float(o['bw'])
+    return o
 
 
 def filterDelayOpts(options):
