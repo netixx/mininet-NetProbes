@@ -6,4 +6,4 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 prog=$DIR"/start.sh"
 
-"$prog" --command "$DIR/start-probe.sh {commandOpts}" --topo "flood-flat-$1" --monitor "usages/flat-$1.txt" #--force-x #
+"$prog" --show-command-output --command "$DIR/start-probe.sh {commandOpts}" --topo "flood-flat-$1" --monitor "usages/flat-$1.txt" #--force-x #

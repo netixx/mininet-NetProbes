@@ -5,5 +5,5 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 prog=$DIR"/start.sh"
 
-"$prog" --no-command -cc --topo tree
+"$prog" --no-command -cc --topo "$DIR/mininet/data/tree.json"
 #"$prog" --command "$DIR/start-probe.sh {commandOpts}" --no-command --vars dtime=100000ms delay=500ms --start 30 --topo delay-tree
