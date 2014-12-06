@@ -1,0 +1,210 @@
+{	
+	"links" : [
+		{
+			"name" : "l1",
+			"hosts" :["h1", "s1"]
+		},
+		{
+			"name" : "l2",
+			"hosts" :["h2", "s1"]
+		},
+		{
+			"name" : "l3",
+			"hosts" :["h3", "s1"]
+		},
+		{
+			"name" : "l4",
+			"hosts" :["h4", "s2"]
+		},
+		{
+			"name" : "l5",
+			"hosts" :["h5", "s2"]
+		},
+		{
+			"name" : "l6",
+			"hosts" :["h6", "s3"]
+		},
+		{
+			"name" : "l7",
+			"hosts" :["h7", "s3"]
+		},
+		{
+			"name" : "l8",
+			"hosts" :["h8", "s4"]
+		},
+		{
+			"name" : "l9",
+			"hosts" :["h9", "s5"]
+		},
+		{
+			"name" : "l10",
+			"hosts" :["h10", "s6"]
+		},
+		{
+			"name" : "l11",
+			"hosts" :["s1", "s4"]
+		},
+		{
+			"name" : "l12",
+			"hosts" :["s2", "s4"]
+		},
+		{
+			"name" : "l13",
+			"hosts" :["s3", "s5"]
+		},
+		{
+			"name" : "l14",
+			"hosts" :["s4", "s6"]
+		},
+		{
+			"name" : "l15",
+			"hosts" :["s5", "s6"]
+		}
+	],
+	"hosts" : [	
+		{
+			"name" : "h1",
+			"options" : {
+				"ip" : "10.1.0.1"
+			}
+		},
+		{
+			"name" : "h2",
+			"options" : {
+				"ip" : "10.1.0.2"
+			}
+		},
+		{
+			"name" : "h3",
+			"options" : {
+				"ip" : "10.1.0.3"
+			}
+		},
+		{
+			"name" : "h4",
+			"options" : {
+				"ip" : "10.1.2.4"
+			}
+		},
+		{
+			"name" : "h5",
+			"options" : {
+				"ip" : "10.1.2.5"
+			}	
+		},
+		{
+			"name" : "h6",
+			"options" : {
+				"ip" : "10.2.1.6"
+			}
+		},
+		{
+			"name" : "h7",
+			"options" : {
+				"ip" : "10.2.1.7"
+			}	
+		},
+		{
+			"name" : "h8",
+			"options" : {
+				"ip" : "10.1.10.8"
+			}
+		},
+		{
+			"name" : "h9",
+			"options" : {
+				"ip" : "10.2.10.9"
+			}	
+		},
+		{
+			"name" : "h10",
+			"options" : {
+				"ip" : "10.10.0.10"
+			}
+		}
+	],
+	"switches" : [
+		{
+			"name" : "s1"
+		},
+		{
+			"name" : "s2"
+		},
+		{
+			"name" : "s3"
+		},
+		{
+			"name" : "s4"
+		},
+		{
+			"name" : "s5"
+		},
+		{
+			"name" : "s6"
+		}
+	],
+	"checks" : [
+	    {
+	        "name" : "delay",
+	        "variations" : {
+	            "delay" : {
+	                "targets" : {
+	                    "l11" : {"steps" : [0, 10, 50, 100, 500]}
+                    },
+                    "options" : {
+                        "sample_number" : 50
+                        }
+                }
+	        },
+	        "affected_check" : [["h1", "h7"], ["h2", "h6"]],
+            "unaffected_check" : [["h1", "h2"]]
+	    },
+	    {
+	        "name" : "bw_htb",
+	        "variations" : {
+	            "bw" : {
+	                "targets" : {
+	                    "l11" : {"steps" : [100, 10, 1]}
+                    },
+                    "options" : {
+                        "sample_number" : 20
+                    }
+                }
+	        },
+	        "affected_check" : [["h1", "h7"], ["h2", "h6"]],
+            "unaffected_check" : [["h1", "h2"]]
+	    },
+	    {
+	        "name" : "bw_tbf",
+	        "variations" : {
+	            "bw" : {
+	                "targets" : {
+	                    "l11" : {"steps" : [100, 10, 1]}
+                    },
+                    "options" : {
+                        "sample_number" : 20,
+                        "use_tbf" : "True"
+                    }
+                }
+	        },
+	        "affected_check" : [["h1", "h7"], ["h2", "h6"]],
+            "unaffected_check" : [["h1", "h2"]]
+	    },
+         {
+            "name" : "bw_hfsc",
+            "variations" : {
+                "bw" : {
+                    "targets" : {
+                        "l11" : {"steps" : [100, 10, 1]}
+                    },
+                    "options" : {
+                        "sample_number" : 20,
+                        "use_hfsc" : "True"
+                    }
+                }
+            },
+            "affected_check" : [["h1", "h7"], ["h2", "h6"]],
+            "unaffected_check" : [["h1", "h2"]]
+        }
+	]
+}

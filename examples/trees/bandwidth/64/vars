@@ -1,0 +1,24 @@
+#!/bin/bash
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+LOG_FILE="$DIR/explore-bw_$(date '+%m-%d_%T').txt"
+
+#impose 10 instead of 100 originally
+bw="10"
+sampleSize="5"
+#detect 20Mbps difference
+x="20"
+
+
+randWeight="1"
+ipWeight="0"
+balanceWeight="0"
+repeat="1 2 3 4"
+global_repeat="1 2"
+watcher="h64"
+
+links="ls63-h64 ls61-s63 ls57-s61 ls49-s57 ls33-s49 ls1-s33"
+topos="tree-6x2-64_bw.json"
+
+
+overlay_size="64"

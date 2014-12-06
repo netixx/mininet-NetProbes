@@ -1,0 +1,11 @@
+#!/bin/sh
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+LOG_FILE="$DIR/explore-bw_$(date '+%m-%d_%T').txt"
+
+topos="$DIR/tree-3x8-512.json"
+links="ls73-h512 ls65-s73 ls65-s73"
+
+operator_probe=""
+overlay_size="512"
