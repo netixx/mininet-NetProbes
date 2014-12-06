@@ -606,7 +606,8 @@ if __name__ == '__main__':
     parser.add_argument("--show-command-output",
                         dest = "show_command_output",
                         action = 'store_true',
-                        default = False)
+                        default = False,
+                        help = "Pipes output of all commands to stdout of this program")
     # emulation options
     parser.add_argument("--topo",
                         dest = 'tfile',
@@ -681,28 +682,34 @@ if __name__ == '__main__':
 
     parser.add_argument('--watcher-probe',
                         dest = 'watcher_probe',
-                        default = None)
+                        default = None,
+                        help = "Name of the watcher probe (hxxx)")
 
     parser.add_argument('--watcher-wait-up',
                         dest = 'watcher_wait_up',
-                        default = None)
+                        default = None,
+                        help = "Location of file to wait before NetProbes overlay is complete")
 
     parser.add_argument('--watcher-start-event',
                         dest = 'watcher_start_event',
-                        default = None)
+                        default = None,
+                        help = "Location of file to wait for starting events")
 
     parser.add_argument('--watcher-post-event',
                         dest = "watcher_post_event",
-                        default = None)
+                        default = None,
+                        help = "Action to perform after events have been applied.")
 
     parser.add_argument('--watcher-reset-event',
                         dest = "watcher_reset_event",
-                        default = None)
+                        default = None,
+                        help = "Location of file to wait for the reset events.")
 
     parser.add_argument('--watcher-type',
                         dest = "watcher_type",
                         choices = ['delay', 'bw'],
-                        default = "delay")
+                        default = "delay",
+                        help = "Type of the watcher to launch")
 
     parser.add_argument('-q', '--quiet',
                         dest = 'quiet',
@@ -711,7 +718,8 @@ if __name__ == '__main__':
                         help = "Set verbosity.")
 
     parser.add_argument('--sim-prepend',
-                        dest = 'sim_prepend')
+                        dest = 'sim_prepend',
+                        help = "Command to prepend before running each simulation")
 
     parser.add_argument('--sim',
                         dest = 'simulations',
