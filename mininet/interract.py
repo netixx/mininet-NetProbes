@@ -45,6 +45,7 @@ def post_events(net, netprobes, watcher_post_event = None):
         p = subprocess.Popen(shlex.split(" ".join(rcmd)))
         p.communicate()
 
+
 def pre_events(net, netprobes, watcher_pre_event = None):
     if watcher_pre_event is not None:
         lg.output("Executing pre event actions '%s'\n" % watcher_pre_event)
@@ -64,11 +65,10 @@ def pre_events(net, netprobes, watcher_pre_event = None):
         p.wait()
         if p.returncode != 0:
             time.sleep(5)
-            lg.error("Command returned %s\n"%p.returncode)
+            lg.error("Command returned %s\n" % p.returncode)
             p = subprocess.Popen(shlex.split(" ".join(rcmd)))
             p.communicate()
             p.wait()
-
 
 
 def wait_process(process):
@@ -78,7 +78,7 @@ def wait_process(process):
         time.sleep(5)
 
 
-def make_watcher_results(watcher_log, watcher_output, topoFile, simParams):
+def make_watcher_results(watcher_log, watcher_output, topoFile, simParams, watcher_type = "delay"):
     import datetime
 
     now = datetime.datetime.now()
@@ -91,12 +91,17 @@ def make_watcher_results(watcher_log, watcher_output, topoFile, simParams):
             lg.error("No log file was found in %s\n" % watcher_log)
     if watcher_output is not None:
         if os.path.exists(watcher_output):
-
-            import watcher_delay
+            if watcher_type == "delay":
+                import watcher_delay as wa
+            elif watcher_type == "bw":
+                import watcher_bw as wa
+            else:
+                lg.error("Unknown watcher type passed : %s\n" % watcher_type)
+                return
             try:
-                watcher_delay.appendResults(watcher_delay.makeResults(watcher_output, topoFile, simParams))
+                wa.appendResults(wa.makeResults(watcher_output, topoFile, simParams))
             except Exception as e:
-                lg.error("Error while processing results %s\n"%e)
+                lg.error("Error while processing results %s\n" % e)
                 lg.error(traceback.format_exc())
             # prevent results from being processed twice
             os.rename(watcher_output, 'watchers/output/%s.json' % now)

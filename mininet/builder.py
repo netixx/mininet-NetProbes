@@ -337,8 +337,24 @@ controllers = {
     'beacon': Beacon,
     'pox': POX,
     'floodlight': Floodlight,
-    'poxroute' : POXRouter
+    'poxroute' : POXRouter,
 }
+
+
+
+from mininet.node import OVSKernelSwitch
+# from mininet.node import OVSBridge, DefaultController, OVSSwitch
+#from mininet.nodelib import LinuxBridge
+
+switches = {
+    # 'ovs-kernel-switch' : OVSKernelSwitch,#same as ovs switch
+    # 'ovs-switch' : OVSSwitch,
+    # 'ovs-bridge' : OVSBridge,
+    # 'linux-bridge' : LinuxBridge,
+    'default' : OVSKernelSwitch
+}
+
+
 # class MultiSwitch(OVSSwitch):
 # "Custom Switch() subclass that connects to different controllers"
 # def start(self, controllers):
@@ -383,7 +399,7 @@ def interract_once(net):
         if args.watcher_probe is not None:
             # interract.wait_process(netprobes[args.watcher_probe])
             interract.wait_reset(args.watcher_reset_event)
-            interract.make_watcher_results(args.watcher_log, args.watcher_output, vars.topoFile, pparams)
+            interract.make_watcher_results(args.watcher_log, args.watcher_output, vars.topoFile, pparams, watcher_type = args.watcher_type)
 
 
 def interract_mul(net):
@@ -405,7 +421,7 @@ def interract_mul(net):
             interract.post_events(net, netprobes, args.watcher_post_event)
 
             interract.wait_reset(args.watcher_reset_event)
-            interract.make_watcher_results(args.watcher_log, args.watcher_output, vars.topoFile, pparams)
+            interract.make_watcher_results(args.watcher_log, args.watcher_output, vars.topoFile, pparams, watcher_type = args.watcher_type)
 
     except (Exception, SystemExit) as e:
         lg.error(e)
@@ -424,13 +440,13 @@ def interract(net):
     return CLI(net)
 
 
-def runTopo(topoFile, simParams, hostOptions, checkLevel, controller):
+def runTopo(topoFile, simParams, hostOptions, checkLevel, controller, switch):
     topo = CustomTopo(topoFilePath = topoFile, simParams = simParams, hostOptions = hostOptions)
     if checkLevel > 1:
         topo.setNetOption('link', TCLink)
     # net = CustomMininet(topo = topo, controller = Beacon, autoSetMacs = True, **topo.getNetOptions())
     # net = CustomMininet(topo = topo, controller = Beacon, **topo.getNetOptions())
-    net = CustomMininet(topo = topo, controller = controller, **topo.getNetOptions())
+    net = CustomMininet(topo = topo, controller = controller, switch = switch, **topo.getNetOptions())
     global netprobes
     netprobes = collections.OrderedDict()
     try:
@@ -636,7 +652,6 @@ if __name__ == '__main__':
                       default = False,
                       help = 'Run strace on command inside nodes')
 
-
     #monitoring options
     parser.add_argument('--monitor',
                         dest = 'monitor_file',
@@ -684,6 +699,11 @@ if __name__ == '__main__':
                         dest = "watcher_reset_event",
                         default = None)
 
+    parser.add_argument('--watcher-type',
+                        dest = "watcher_type",
+                        choices = ['delay', 'bw'],
+                        default = "delay")
+
     parser.add_argument('-q', '--quiet',
                         dest = 'quiet',
                         action = 'count',
@@ -701,7 +721,14 @@ if __name__ == '__main__':
 
     parser.add_argument('--controller',
                         choices = controllers.keys(),
-                        default = 'nox')
+                        default = 'nox',
+                        help = "Specify controller to use (see mininet doc)")
+
+    parser.add_argument('--switch',
+                        choices = switches.keys(),
+                        default = 'default',
+                        help = "Specify switch to use (see mininet doc)")
+
     # import sys
     #
     # print  sys.argv
@@ -754,4 +781,5 @@ if __name__ == '__main__':
             simParams = pparams,
             hostOptions = hOpts,
             checkLevel = args.net_check,
-            controller = controllers[args.controller])
+            controller = controllers[args.controller],
+            switch = switches[args.switch])
